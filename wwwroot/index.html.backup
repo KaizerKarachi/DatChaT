@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ДачЧат</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(180deg, #87CEEB 0%, #98D8C8 50%, #7BC67E 100%);
+            --container-bg: rgba(255, 255, 255, 0.95);
+            --header-bg: linear-gradient(135deg, #8B7FB8 0%, #9B8FC8 100%);
+            --header-text-color: #FFB366;
+            --login-title-color: #333;
+            --login-subtitle-color: #999;
+            --input-border: #ddd;
+            --input-focus-border: #8B7FB8;
+            --button-bg: linear-gradient(135deg, #8B7FB8 0%, #9B8FC8 100%);
+            --button-text: white;
+            --users-panel-bg: #f8f9fa;
+            --users-panel-border: #ddd;
+            --users-title-color: #666;
+            --user-item-bg: white;
+            --messages-bg: #f5f5f5;
+            --message-text-bg: white;
+            --user-admin-color: #000;
+            --user-regular-color: #888;
+            --user-system-color: #999;
+            --file-link-color: #8B7FB8;
+            --system-text-color: #999;
+            --input-area-bg: white;
+            --input-area-border: #ddd;
+            --input-wrapper-bg: #f5f5f5;
+            --attach-btn-color: #888;
+            --attach-btn-hover-color: #666;
+            --message-input-placeholder: #999;
+            --emoji-picker-bg: white;
+            --emoji-picker-border: #ddd;
+            --emoji-picker-shadow: rgba(0,0,0,0.2);
+            --emoji-hover-bg: #f0f0f0;
+            --logout-btn-bg: rgba(255, 255, 255, 0.2);
+            --logout-btn-border: rgba(255, 255, 255, 0.4);
+            --logout-btn-hover-bg: rgba(255, 255, 255, 0.3);
+            --context-menu-bg: white;
+            --context-menu-border: #ddd;
+            --context-menu-hover: #f5f5f5;
+        }
+        body.dark-theme {
+            --bg-gradient: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            --container-bg: rgba(30, 30, 46, 0.95);
+            --header-bg: linear-gradient(135deg, #2d2d44 0%, #3d3d5c 100%);
+            --header-text-color: #FFB366;
+            --login-title-color: #e0e0e0;
+            --login-subtitle-color: #888;
+            --input-border: #444;
+            --input-focus-border: #9B8FC8;
+            --button-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --button-text: white;
+            --users-panel-bg: #252538;
+            --users-panel-border: #444;
+            --users-title-color: #aaa;
+            --user-item-bg: #2d2d44;
+            --messages-bg: #1e1e2e;
+            --message-text-bg: #2d2d44;
+            --user-admin-color: #FFB366;
+            --user-regular-color: #aaa;
+            --user-system-color: #888;
+            --file-link-color: #9B8FC8;
+            --system-text-color: #888;
+            --input-area-bg: #252538;
+            --input-area-border: #444;
+            --input-wrapper-bg: #1e1e2e;
+            --attach-btn-color: #aaa;
+            --attach-btn-hover-color: #ccc;
+            --message-input-placeholder: #666;
+            --emoji-picker-bg: #2d2d44;
+            --emoji-picker-border: #444;
+            --emoji-picker-shadow: rgba(0,0,0,0.5);
+            --emoji-hover-bg: #3d3d5c;
+            --logout-btn-bg: rgba(255, 255, 255, 0.1);
+            --logout-btn-border: rgba(255, 255, 255, 0.2);
+            --logout-btn-hover-bg: rgba(255, 255, 255, 0.2);
+            --context-menu-bg: #2d2d44;
+            --context-menu-border: #444;
+            --context-menu-hover: #3d3d5c;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-gradient); height: 100vh; display: flex; align-items: center; position: relative; overflow: hidden; }
+        .bg-pattern { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-image: url('/background.jpg'); background-size: cover; background-position: center; opacity: 0.12; mix-blend-mode: overlay; pointer-events: none; z-index: 0; }
+        .doodles { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-image: radial-gradient(ellipse 30px 15px at 15% 20%, rgba(255, 182, 193, 0.4) 0%, transparent 70%), radial-gradient(ellipse 25px 12px at 15% 20%, rgba(255, 160, 122, 0.3) 0%, transparent 70%), radial-gradient(ellipse 30px 15px at 65% 35%, rgba(255, 182, 193, 0.35) 0%, transparent 70%), radial-gradient(ellipse 25px 12px at 65% 35%, rgba(255, 160, 122, 0.25) 0%, transparent 70%), radial-gradient(ellipse 30px 15px at 85% 70%, rgba(255, 182, 193, 0.4) 0%, transparent 70%), radial-gradient(ellipse 25px 12px at 85% 70%, rgba(255, 160, 122, 0.3) 0%, transparent 70%), radial-gradient(ellipse 20px 30px at 35% 15%, rgba(255, 255, 255, 0.3) 0%, transparent 70%), radial-gradient(ellipse 15px 25px at 35% 15%, rgba(230, 230, 250, 0.25) 0%, transparent 70%), radial-gradient(ellipse 20px 30px at 75% 50%, rgba(255, 255, 255, 0.25) 0%, transparent 70%), radial-gradient(ellipse 15px 25px at 75% 50%, rgba(230, 230, 250, 0.2) 0%, transparent 70%), radial-gradient(ellipse 20px 30px at 25% 85%, rgba(255, 255, 255, 0.3) 0%, transparent 70%), radial-gradient(ellipse 15px 25px at 25% 85%, rgba(230, 230, 250, 0.25) 0%, transparent 70%), radial-gradient(circle 8px at 45% 25%, rgba(147, 112, 219, 0.3) 0%, transparent 70%), radial-gradient(circle 6px at 47% 23%, rgba(147, 112, 219, 0.25) 0%, transparent 70%), radial-gradient(circle 8px at 55% 60%, rgba(147, 112, 219, 0.35) 0%, transparent 70%), radial-gradient(circle 6px at 57% 58%, rgba(147, 112, 219, 0.3) 0%, transparent 70%), radial-gradient(circle 18px at 55% 40%, rgba(255, 255, 255, 0.25) 0%, transparent 70%), radial-gradient(circle 14px at 55% 40%, rgba(240, 248, 255, 0.2) 0%, transparent 70%), radial-gradient(circle 18px at 15% 55%, rgba(255, 255, 255, 0.3) 0%, transparent 70%), radial-gradient(circle 14px at 15% 55%, rgba(240, 248, 255, 0.25) 0%, transparent 70%), radial-gradient(ellipse 12px 12px at 85% 25%, rgba(255, 223, 0, 0.3) 0%, transparent 70%), radial-gradient(ellipse 10px 10px at 85% 25%, rgba(255, 215, 0, 0.25) 0%, transparent 70%), radial-gradient(ellipse 12px 12px at 45% 75%, rgba(255, 223, 0, 0.35) 0%, transparent 70%), radial-gradient(ellipse 10px 10px at 45% 75%, rgba(255, 215, 0, 0.3) 0%, transparent 70%); opacity: 0.6; pointer-events: none; z-index: 1; }
+        body::before { content: ''; position: fixed; bottom: 0; left: 0; right: 0; height: 40vh; background: radial-gradient(ellipse 80px 120px at 10% 100%, rgba(34, 139, 34, 0.6) 0%, transparent 70%), radial-gradient(ellipse 60px 100px at 10% 85%, rgba(50, 160, 50, 0.5) 0%, transparent 70%), radial-gradient(ellipse 100px 150px at 25% 100%, rgba(46, 139, 87, 0.5) 0%, transparent 70%), radial-gradient(ellipse 70px 110px at 25% 80%, rgba(60, 179, 113, 0.4) 0%, transparent 70%), radial-gradient(ellipse 90px 140px at 75% 100%, rgba(34, 139, 34, 0.5) 0%, transparent 70%), radial-gradient(ellipse 65px 105px at 75% 82%, rgba(50, 160, 50, 0.4) 0%, transparent 70%), radial-gradient(ellipse 110px 160px at 90% 100%, rgba(46, 139, 87, 0.6) 0%, transparent 70%), radial-gradient(ellipse 75px 115px at 90% 78%, rgba(60, 179, 113, 0.5) 0%, transparent 70%); pointer-events: none; z-index: 2; }
+        body::after { content: ''; position: fixed; top: 10%; left: 0; right: 0; height: 30vh; background: radial-gradient(ellipse 120px 40px at 20% 30%, rgba(255, 255, 255, 0.4) 0%, transparent 70%), radial-gradient(ellipse 100px 35px at 60% 20%, rgba(255, 255, 255, 0.3) 0%, transparent 70%), radial-gradient(ellipse 140px 45px at 85% 40%, rgba(255, 255, 255, 0.35) 0%, transparent 70%); pointer-events: none; z-index: 2; }
+        .container { width: 100%; max-width: 800px; height: 100vh; background: var(--container-bg); backdrop-filter: blur(10px); display: flex; flex-direction: column; overflow: hidden; position: relative; z-index: 3; }
+        .header { background: var(--header-bg); color: white; padding: 15px; text-align: center; font-size: 20px; font-weight: bold; flex-shrink: 0; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: url('/background.jpg'); background-size: cover; background-position: center; opacity: 0.15; mix-blend-mode: overlay; pointer-events: none; }
+        .header-text { position: relative; z-index: 1; display: inline-block; color: var(--header-text-color); animation: sway 3s ease-in-out infinite; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        @keyframes sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+        .logout-btn { position: absolute; right: 80px; top: 50%; transform: translateY(-50%); background: var(--logout-btn-bg); border: 1px solid var(--logout-btn-border); color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; z-index: 2; transition: all 0.3s ease; display: none; }
+        .logout-btn:hover { background: var(--logout-btn-hover-bg); transform: translateY(-50%) scale(1.05); }
+        .logout-btn.show { display: block; }
+        .theme-toggle { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: var(--logout-btn-bg); border: 1px solid var(--logout-btn-border); color: white; padding: 8px 12px; border-radius: 20px; font-size: 18px; cursor: pointer; z-index: 2; transition: all 0.3s ease; }
+        .theme-toggle:hover { background: var(--logout-btn-hover-bg); transform: translateY(-50%) scale(1.1); }
+        .login-screen { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+        .login-screen h2 { margin-bottom: 10px; color: var(--login-title-color); font-size: 24px; }
+        .login-screen p { color: var(--login-subtitle-color); margin-bottom: 30px; text-align: center; }
+        .login-screen input { padding: 15px 20px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 10px; margin-bottom: 15px; width: 100%; max-width: 300px; background: var(--container-bg); color: var(--login-title-color); }
+        .login-screen input:focus { outline: none; border-color: var(--input-focus-border); }
+        .login-screen button { padding: 15px 40px; font-size: 16px; background: var(--button-bg); color: var(--button-text); border: none; border-radius: 10px; cursor: pointer; }
+        .main { flex: 1; display: flex; overflow: hidden; flex-direction: column; }
+        .users-panel { width: 200px; background: var(--users-panel-bg); border-right: 1px solid var(--users-panel-border); padding: 20px; overflow-y: auto; flex-shrink: 0; }
+        .users-panel h3 { font-size: 14px; color: var(--users-title-color); margin-bottom: 10px; }
+        .user-item { padding: 8px 12px; margin-bottom: 5px; background: var(--user-item-bg); border-radius: 8px; font-size: 14px; color: var(--login-title-color); }
+        .messages { flex: 1; overflow-y: auto; padding: 15px; background: var(--messages-bg); }
+        .message { margin-bottom: 15px; animation: slideIn 0.3s ease; position: relative; }
+        .message.deleted { opacity: 0.5; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message .user { font-size: 14px; display: block; margin-bottom: 5px; }
+        .message .user.admin { color: var(--user-admin-color); font-weight: bold; font-style: italic; }
+        .message .user.regular { color: var(--user-regular-color); }
+        .message .user.system { color: var(--user-system-color); font-style: italic; }
+        .message .text { background: var(--message-text-bg); padding: 10px 15px; border-radius: 10px; display: inline-block; max-width: 80%; word-wrap: break-word; color: var(--login-title-color); }
+        .message.deleted .text { font-style: italic; color: var(--user-system-color); }
+        .message img { max-width: 100%; max-height: 300px; border-radius: 10px; margin-top: 5px; cursor: pointer; }
+        .message .file-link { display: block; margin-top: 5px; padding: 10px 15px; background: var(--message-text-bg); border-radius: 10px; color: var(--file-link-color); text-decoration: none; max-width: 80%; }
+        .system { text-align: center; color: var(--system-text-color); font-style: italic; font-size: 14px; margin: 10px 0; }
+        
+        /* Закреплённое сообщение */
+        .pinned-bar { 
+            background: var(--users-panel-bg);
+            border-bottom: 2px solid var(--header-text-color);
+            padding: 10px 15px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--login-title-color);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .pinned-bar:hover { background: var(--emoji-hover-bg); }
+        .pinned-bar.show { display: flex; }
+        .pinned-bar .pin-icon { font-size: 20px; flex-shrink: 0; }
+        .pinned-bar .pin-content { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .pinned-bar .pin-author { font-weight: bold; color: var(--header-text-color); }
+        .pinned-bar .pin-text { color: var(--user-regular-color); font-size: 13px; }
+        .pinned-bar .pin-meta { font-size: 11px; color: var(--user-system-color); margin-top: 2px; }
+        .pinned-bar .unpin-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--user-system-color);
+            padding: 5px;
+            flex-shrink: 0;
+        }
+        .pinned-bar .unpin-btn:hover { color: #f44336; }
+        
+        .typing-indicator { padding: 5px 15px; font-size: 12px; color: var(--user-regular-color); font-style: italic; background: var(--messages-bg); border-top: 1px solid var(--input-area-border); display: none; }
+        .input-area { padding: 12px 15px; background: var(--input-area-bg); border-top: 1px solid var(--input-area-border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .input-wrapper { flex: 1; display: flex; align-items: center; background: var(--input-wrapper-bg); border-radius: 25px; padding: 8px 15px; gap: 10px; }
+        .attach-btn { background: none; border: none; font-size: 24px; color: var(--attach-btn-color); cursor: pointer; padding: 5px; transition: transform 0.3s ease; flex-shrink: 0; }
+        .attach-btn:hover { transform: rotate(45deg); color: var(--attach-btn-hover-color); }
+        .message-input { flex: 1; border: none; background: transparent; font-size: 16px; outline: none; padding: 5px 0; color: var(--login-title-color); }
+        .message-input::placeholder { color: var(--message-input-placeholder); }
+        .right-controls { display: flex; gap: 8px; align-items: center; }
+        .emoji-btn { background: none; border: none; font-size: 26px; cursor: pointer; padding: 5px; transition: transform 0.3s ease; }
+        .emoji-btn:hover { transform: scale(1.2); }
+        .send-btn { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3); }
+        .send-btn:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+        .send-btn:active { transform: scale(0.95); }
+        .emoji-picker {
+            position: absolute;
+            bottom: 80px;
+            left: 10px;
+            right: 10px;
+            background: var(--emoji-picker-bg);
+            border: 1px solid var(--emoji-picker-border);
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 5px 15px var(--emoji-picker-shadow);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .emoji-picker.show {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+            gap: 5px;
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+        .status.connected { color: #4caf50; }
+        .status.disconnected { color: #f44336; }
+        
+        /* Контекстное меню для удаления */
+        .context-menu {
+            position: fixed;
+            background: var(--context-menu-bg);
+            border: 1px solid var(--context-menu-border);
+            border-radius: 8px;
+            padding: 5px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 2000;
+            min-width: 150px;
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.8);
+            transition: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .context-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1);
+        }
+        }
+        .context-menu.show { display: block; }
+        .context-menu-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            color: var(--login-title-color);
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .context-menu-item:hover { background: var(--context-menu-hover); }
+        .context-menu-item.delete { color: #f44336; }
+        
+        @media (min-width: 901px) { .container { height: 90vh; border-radius: 20px; margin-left: auto; margin-right: 5%; } }
+        @media (min-width: 601px) and (max-width: 900px) { .container { max-width: 95%; height: 95vh; border-radius: 15px; } .users-panel { width: 150px; } }
