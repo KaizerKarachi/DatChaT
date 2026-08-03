@@ -1,429 +1,151 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
-using FamilyChat.Data;
+using FamilyChat.Interfaces;
 using FamilyChat.Models;
-using FamilyChat.Services;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace FamilyChat.Hubs;
 
 public class ChatHub : Hub
 {
-    private readonly ChatService _service;
+    private readonly IChatService _chatService;
+    private readonly IUserService _userService;
+    private readonly IMessageService _messageService;
     private readonly ILogger<ChatHub> _logger;
 
-    // Rate limiting: ConnectionId -> время последнего действия
-    private static readonly Dictionary<string, DateTime> _lastAction = new();
-    private static readonly object _rateLock = new();
-
-    private readonly ChatDbContext _db;
-    
-    public ChatHub(ChatService service, ChatDbContext db, ILogger<ChatHub> logger)
+    public ChatHub(IChatService chatService, IUserService userService, IMessageService messageService, ILogger<ChatHub> logger)
     {
-        _service = service;
-        _db = db;
+        _chatService = chatService;
+        _userService = userService;
+        _messageService = messageService;
         _logger = logger;
     }
 
-    // Проверка rate limit (1.5 сек между действиями)
-    private bool CheckRateLimit()
+    public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        lock (_rateLock)
-        {
-            if (_lastAction.TryGetValue(Context.ConnectionId, out var last))
-            {
-                if ((DateTime.UtcNow - last).TotalSeconds < 1.5)
-                {
-                    Log.Warning("[RATE LIMIT] {ConnId}", Context.ConnectionId);
-                    return false;
-                }
-            }
-            _lastAction[Context.ConnectionId] = DateTime.UtcNow;
-            return true;
-        }
+        await _userService.SetUserOfflineAsync(Context.ConnectionId);
+        await Clients.All.SendAsync("UpdateOnlineUsers", await _userService.GetOnlineUsersAsync());
+        await base.OnDisconnectedAsync(exception);
     }
 
-private Task<User?> GetCurrentUser()
-{
-    return _service.FindByConnectionId(Context.ConnectionId);
-}
-
-private static string DisplayNickname(string nickname)
-{
-    return nickname.TrimStart('#');
-}
-
-
-    public async Task RegisterOrLogin(string nickname, string password)
+    public async Task<Dictionary<string, object>> RegisterOrLogin(string nickname, string password)
     {
-        // Валидация
-        var (nickOk, nickErr) = InputValidator.ValidateNickname(nickname);
-        if (!nickOk) throw new HubException(nickErr);
-        
-        var (passOk, passErr) = InputValidator.ValidatePassword(password);
-        if (!passOk) throw new HubException(passErr);
-
-        if (!nickname.StartsWith('#')) nickname = "#" + nickname;
-
-        var user = await _service.FindByNickname(nickname);
-
-        if (user == null)
+        try
         {
-            Log.Information("[НОВЫЙ] Регистрация: {Nick}", nickname);
-            user = await _service.CreateUser(nickname, BCrypt.Net.BCrypt.HashPassword(password));
-        }
-        else
-        {
-            if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
-                throw new HubException("Неверный пароль!");
-        }
+            var user = await _userService.RegisterOrLoginAsync(nickname, password);
+            await _userService.SetUserOnlineAsync(Context.ConnectionId, user.Nickname);
+            await Clients.All.SendAsync("UpdateOnlineUsers", await _userService.GetOnlineUsersAsync());
 
-        await FinalizeLogin(user, true);
+            return new Dictionary<string, object> { ["success"] = true, ["nickname"] = user.Nickname, ["sessionToken"] = user.SessionToken!, ["isAdmin"] = user.IsAdmin };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Ошибка входа: {Nickname}", nickname);
+            return new Dictionary<string, object> { ["success"] = false, ["error"] = ex.Message };
+        }
     }
 
     public async Task JoinByToken(string nickname, string sessionToken)
     {
-        if (string.IsNullOrWhiteSpace(nickname) || string.IsNullOrWhiteSpace(sessionToken))
-            throw new HubException("Неверные данные");
-
-        if (!nickname.StartsWith('#')) nickname = "#" + nickname;
-
-        var user = await _service.FindByNickname(nickname);
-        if (user == null || user.SessionToken != sessionToken)
-            throw new HubException("Сессия истекла");
-
-        await FinalizeLogin(user, false);
-    }
-
-    private async Task FinalizeLogin(User user, bool generateNewToken)
-    {
-        // Выкидываем с другого устройства
-        if (!string.IsNullOrEmpty(user.ConnectionId) && user.ConnectionId != Context.ConnectionId)
-            await Clients.Client(user.ConnectionId).SendAsync("ForceLogout", "Вы вошли с другого устройства");
-
-        if (generateNewToken)
-            user.SessionToken = Guid.NewGuid().ToString();
-
-        await _service.SetUserOnline(user, Context.ConnectionId);
-
-        string displayNick = user.Nickname.TrimStart('#');
-        await Clients.All.SendAsync("UserJoined", displayNick);
-
-        // Закреплённое сообщение
-        var pinned = await _service.GetLastPinned();
-        if (pinned != null)
+        try
         {
-            var msg = await _db.Messages.FindAsync(pinned.MessageId);
-            if (msg != null)
+            var user = await _userService.JoinByTokenAsync(nickname, sessionToken);
+            await _userService.SetUserOnlineAsync(Context.ConnectionId, user.Nickname);
+            
+            var history = await _chatService.GetRecentMessagesAsync(100);
+            var pinned = await _chatService.GetLastPinnedAsync();
+            
+            await Clients.Caller.SendAsync("LoadHistory", history);
+            if (pinned?.Message != null)
             {
-                await Clients.Caller.SendAsync("PinnedMessage", NormalizeMessage(msg, pinned.PinnedBy, pinned.PinnedAt));
+                await Clients.Caller.SendAsync("PinnedMessage", new {
+                    Id = pinned.MessageId, Nickname = pinned.Message.User, Text = pinned.Message.Text,
+                    FileUrl = pinned.Message.FileUrl, FileType = pinned.Message.FileType,
+                    Time = pinned.Message.Timestamp.ToString("HH:mm"), IsAdmin = user.IsAdmin,
+                    IsDeleted = pinned.Message.IsDeleted, PinnedBy = pinned.PinnedBy,
+                    PinnedAt = pinned.PinnedAt.ToString("HH:mm dd.MM.yyyy")
+                });
             }
+            await Clients.All.SendAsync("UpdateOnlineUsers", await _userService.GetOnlineUsersAsync());
         }
-
-        // История (последние 100, в правильном порядке)
-        var messages = (await _service.GetRecentMessages(100)).AsEnumerable().Reverse();
-        var normalized = messages.Select(m => NormalizeMessage(m)).ToList();
-        await Clients.Caller.SendAsync("LoadHistory", normalized);
-
-        await Clients.Caller.SendAsync("LoginSuccess", new
-        {
-            Nickname = displayNick,
-            SessionToken = user.SessionToken,
-            IsAdmin = user.IsAdmin
-        });
-
-        await UpdateOnlineUsers();
+        catch (Exception ex) { await Clients.Caller.SendAsync("SystemMessage", $"Ошибка: {ex.Message}"); }
     }
 
-    public async Task SendMessage(string text)
+    public async Task SendMessage(string text, string? fileUrl = null, string? fileType = null)
     {
-        var user = await _service.FindByConnectionId(Context.ConnectionId);
+        var user = await _userService.FindByConnectionIdAsync(Context.ConnectionId);
         if (user == null) return;
 
-        if (!CheckRateLimit()) return;
-
-        // Команды
-        if (text == "/help") { await ShowHelp(user); return; }
-        if (text == "/ping")
-        {
-            await Clients.Caller.SendAsync("ReceiveMessage", new
-            {
-                Nickname = "Система",
-                Text = $"🏓 Pong! {DateTime.Now:HH:mm:ss}",
-                Time = DateTime.Now.ToString("HH:mm"),
-                IsAdmin = false,
-                IsDeleted = false
-            });
-            return;
-        }
-        if (text.StartsWith("/search ")) { await SearchMessages(user, text[8..]); return; }
-        if (text.StartsWith("/pm ")) { await SendPrivateMessage(user, text[4..]); return; }
-        if (user.IsAdmin && text.StartsWith("/create ")) { await CreateUser(user, text[8..]); return; }
-        if (user.IsAdmin && text.StartsWith("/approve ")) { await ApproveUser(user, text[9..]); return; }
-
-        // Валидация сообщения
-        var (ok, err) = InputValidator.ValidateMessage(text);
-        if (!ok)
-        {
-            await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = $"❌ {err}", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
-            return;
-        }
-
-        var message = await _service.SaveMessage(user.Nickname, text);
-        var displayNick = user.Nickname.TrimStart('#');
-
-        await Clients.All.SendAsync("ReceiveMessage", new
-        {
-            Id = message.Id,
-            Nickname = displayNick,
-            Text = text,
-            FileUrl = "",
-            FileType = "",
-            Time = DateTime.Now.ToString("HH:mm"),
-            IsAdmin = user.IsAdmin,
-            IsDeleted = false
+        var message = await _chatService.SaveMessageAsync(user.Nickname, text, fileUrl, fileType);
+        await Clients.All.SendAsync("ReceiveMessage", new {
+            Id = message.Id, Nickname = message.User, Text = message.Text, FileUrl = message.FileUrl,
+            FileType = message.FileType, Time = message.Timestamp.ToString("HH:mm"),
+            IsAdmin = user.IsAdmin, IsDeleted = message.IsDeleted, IsPinned = message.IsPinned
         });
     }
 
     public async Task PinMessage(int messageId)
     {
-        var user = await _service.FindByConnectionId(Context.ConnectionId);
-        if (user == null) return;
+        var user = await _userService.FindByConnectionIdAsync(Context.ConnectionId);
+        if (user == null || !user.IsAdmin) return;
 
-        if (!CheckRateLimit()) return;
-
-        try
+        await _chatService.PinMessageAsync(messageId, user.Nickname);
+        var pinned = await _chatService.GetLastPinnedAsync();
+        if (pinned?.Message != null)
         {
-            var pinned = await _service.PinMessage(messageId, user.Nickname);
-            var msg = await _db.Messages.FindAsync(messageId);
-            if (msg != null)
-            {
-                var displayNick = msg.User.TrimStart('#');
-                var pinnedByNick = user.Nickname.TrimStart('#');
-                await Clients.All.SendAsync("PinnedMessage", NormalizeMessage(msg, pinnedByNick, pinned.PinnedAt));
-                Log.Information("📌 {User} закрепил сообщение #{Id}", user.Nickname, messageId);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Ошибка при закреплении #{Id}", messageId);
-            await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = "❌ Ошибка при закреплении", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
+            await Clients.All.SendAsync("PinnedMessage", new {
+                Id = pinned.MessageId, Nickname = pinned.Message.User, Text = pinned.Message.Text,
+                PinnedBy = pinned.PinnedBy, PinnedAt = pinned.PinnedAt.ToString("HH:mm dd.MM.yyyy")
+            });
         }
     }
 
     public async Task UnpinMessage()
     {
-        var user = await _service.FindByConnectionId(Context.ConnectionId);
+        var user = await _userService.FindByConnectionIdAsync(Context.ConnectionId);
         if (user == null || !user.IsAdmin) return;
 
-        await _service.UnpinLast();
+        await _chatService.UnpinLastAsync();
         await Clients.All.SendAsync("MessageUnpinned");
-        Log.Information("📌 {User} открепил сообщение", user.Nickname);
     }
 
     public async Task DeleteMessage(int messageId)
     {
-        var user = await _service.FindByConnectionId(Context.ConnectionId);
+        var user = await _userService.FindByConnectionIdAsync(Context.ConnectionId);
         if (user == null) return;
 
-        if (!CheckRateLimit()) return;
-
-        var message = await _db.Messages.FindAsync(messageId);
-        if (message == null) return;
-
-        if (message.User != user.Nickname && !user.IsAdmin)
+        var msg = await _chatService.FindMessageByIdAsync(messageId);
+        if (msg != null && (msg.User == user.Nickname || user.IsAdmin))
         {
-            await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = "❌ Можно удалить только своё сообщение", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
+            await _chatService.MarkDeletedAsync(messageId);
+            await Clients.All.SendAsync("MessageDeleted", messageId);
+        }
+    }
+
+    public async Task SearchMessages(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Length < 3) return;
+        var results = await _chatService.SearchMessagesAsync(query, 50);
+        await Clients.Caller.SendAsync("SearchResults", results);
+    }
+
+    public async Task SendPrivateMessage(string receiverNickname, string text)
+    {
+        var sender = await _userService.FindByConnectionIdAsync(Context.ConnectionId);
+        var receiver = await _userService.FindByNicknameAsync(receiverNickname);
+
+        if (sender == null || receiver == null)
+        {
+            await Clients.Caller.SendAsync("SystemMessage", "Пользователь не найден");
             return;
         }
 
-        // Если закреплено — открепляем
-        var pinned = await _service.GetLastPinned();
-        if (pinned?.MessageId == messageId)
-        {
-            await _service.UnpinLast();
-            await Clients.All.SendAsync("MessageUnpinned");
-        }
-
-        await _service.MarkDeleted(messageId);
-
-        await Clients.All.SendAsync("MessageDeleted", new
-        {
-            Id = message.Id,
-            Nickname = message.User.TrimStart('#'),
-            Text = "Сообщение удалено",
-            FileUrl = "",
-            FileType = "",
-            Time = message.Timestamp.ToLocalTime().ToString("HH:mm"),
-            IsAdmin = message.User == "#Админ",
-            IsDeleted = true
-        });
-    }
-
-    public async Task SendTyping(string nickname)
-    {
-        var user = await _service.FindByConnectionId(Context.ConnectionId);
-        if (user == null) return;
-        await Clients.Others.SendAsync("UserTyping", nickname.TrimStart('#'));
-    }
-
-    public async Task SendFile(string fileName, string fileUrl, string fileType)
-    {
-        var user = await _service.FindByConnectionId(Context.ConnectionId);
-        if (user == null) return;
-
-        if (!CheckRateLimit()) return;
-
-        var message = await _service.SaveMessage(user.Nickname, fileName, fileUrl, fileType);
-        var displayNick = user.Nickname.TrimStart('#');
-
-        await Clients.All.SendAsync("ReceiveMessage", new
-        {
-            Id = message.Id,
-            Nickname = displayNick,
-            Text = fileName,
-            FileUrl = fileUrl,
-            FileType = fileType,
-            Time = DateTime.Now.ToString("HH:mm"),
-            IsAdmin = user.IsAdmin,
-            IsDeleted = false
-        });
-    }
-
-    public override async Task OnDisconnectedAsync(Exception? exception)
-    {
-        var user = await _service.FindByConnectionId(Context.ConnectionId);
-        if (user != null)
-        {
-            string displayNick = user.Nickname.TrimStart('#');
-            await _service.SetUserOffline(Context.ConnectionId);
-            await Clients.All.SendAsync("UserLeft", displayNick);
-            await UpdateOnlineUsers();
-            Log.Information("👋 {User} отключился", user.Nickname);
-        }
-        await base.OnDisconnectedAsync(exception);
-    }
-
-    // === ПРИВАТНЫЕ МЕТОДЫ ===
-
-    private async Task SearchMessages(User user, string searchText)
-    {
-        if (string.IsNullOrWhiteSpace(searchText)) return;
-        var messages = await _service.SearchMessages(searchText, 20);
-
-        await Clients.Caller.SendAsync("ReceiveMessage", new
-        {
-            Nickname = "🔍 Поиск",
-            Text = $"Найдено: {messages.Count} по запросу '{searchText}'",
-            Time = DateTime.Now.ToString("HH:mm"),
-            IsAdmin = false,
-            IsDeleted = false
-        });
-
-        foreach (var msg in messages)
-        {
-            await Clients.Caller.SendAsync("ReceiveMessage", NormalizeMessage(msg));
-        }
-    }
-
-    private async Task SendPrivateMessage(User sender, string rawArgs)
-    {
-        var parts = rawArgs.Split(' ', 2);
-        if (parts.Length < 2)
-        {
-            await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = "❌ Использование: /pm <ник> <текст>", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
-            return;
-        }
-
-        var receiverNick = parts[0];
-        if (!receiverNick.StartsWith('#')) receiverNick = "#" + receiverNick;
-
-        var receiver = await _service.FindByNickname(receiverNick);
-        if (receiver == null)
-        {
-            await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = $"❌ {receiverNick} не найден", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
-            return;
-        }
-
-        await _service.SavePrivateMessage(sender.Nickname, receiver.Nickname, parts[1]);
-
+        await _messageService.SavePrivateMessageAsync(sender.Nickname, receiver.Nickname, text);
         if (!string.IsNullOrEmpty(receiver.ConnectionId))
-        {
-            await Clients.Client(receiver.ConnectionId).SendAsync("ReceivePrivateMessage",
-                sender.Nickname.TrimStart('#'), parts[1], DateTime.Now.ToString("HH:mm"));
-        }
-
-        await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = $"✉️ Отправлено {receiver.Nickname.TrimStart('#')}", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
+            await Clients.Client(receiver.ConnectionId).SendAsync("ReceivePrivateMessage", sender.Nickname, text);
+        
+        await Clients.Caller.SendAsync("ReceivePrivateMessage", receiver.Nickname, text);
     }
-
-    private async Task CreateUser(User admin, string args)
-    {
-        var parts = args.Split(' ');
-        if (parts.Length < 2)
-        {
-            await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = "❌ /create #Ник Пароль", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
-            return;
-        }
-
-        var nick = parts[0];
-        if (!nick.StartsWith('#')) nick = "#" + nick;
-
-        if (await _service.FindByNickname(nick) != null)
-        {
-            await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = $"❌ {nick} уже существует", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
-            return;
-        }
-
-        await _service.CreateUser(nick, BCrypt.Net.BCrypt.HashPassword(parts[1]));
-        await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = $"✅ {nick} создан!", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
-    }
-
-    private async Task ApproveUser(User admin, string nick)
-    {
-        if (!nick.StartsWith('#')) nick = "#" + nick;
-        var target = await _service.FindByNickname(nick);
-        if (target != null)
-        {
-            target.IsApproved = true;
-            await _db.SaveChangesAsync();
-            await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "Система", Text = $"✅ {nick} одобрен!", Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
-        }
-    }
-
-    private async Task ShowHelp(User user)
-    {
-        var help = user.IsAdmin
-            ? "📋 /help /search /pm /create /approve /ping"
-            : "📋 /help /search /pm /ping";
-        await Clients.Caller.SendAsync("ReceiveMessage", new { Nickname = "🤖 Справка", Text = help, Time = DateTime.Now.ToString("HH:mm"), IsAdmin = false, IsDeleted = false });
-    }
-
-    private async Task UpdateOnlineUsers()
-    {
-        await Clients.All.SendAsync("UpdateUsers", _service.GetOnlineUsers().Select(n => n.TrimStart('#')).ToList());
-    }
-
-    // === ВСПОМОГАТЕЛЬНЫЕ ===
-
-    private static Dictionary<string, object?> NormalizeMessage(ChatMessage m, string? pinnedBy = null, DateTime? pinnedAt = null)
-    {
-        var result = new Dictionary<string, object?>
-        {
-            ["Id"] = m.Id,
-            ["Nickname"] = m.User.TrimStart('#'),
-            ["Text"] = m.IsDeleted ? "Сообщение удалено" : m.Text,
-            ["FileUrl"] = m.IsDeleted ? "" : (m.FileUrl ?? ""),
-            ["FileType"] = m.IsDeleted ? "" : (m.FileType ?? ""),
-            ["Time"] = m.Timestamp.ToLocalTime().ToString("HH:mm"),
-            ["IsAdmin"] = m.User == "#Админ",
-            ["IsDeleted"] = m.IsDeleted
-        };
-        if (pinnedBy != null)
-        {
-            result["PinnedBy"] = pinnedBy.TrimStart('#');
-            result["PinnedAt"] = pinnedAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
-        }
-        return result;
-    }
-
-    // Нужен для доступа к БД в некоторых местах (лучше вынести в сервис)
 }

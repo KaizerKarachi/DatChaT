@@ -1,3 +1,4 @@
+using FamilyChat.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -16,7 +17,7 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
-    Log.Information("🚀 Запуск DatCha...");
+    Log.Information("🚀 Запуск DatChaT...");
 
     var builder = WebApplication.CreateBuilder(args);
 
@@ -25,7 +26,9 @@ try
 
     // Регистрируем сервисы
     builder.Services.AddDbContext<ChatDbContext>();
-    builder.Services.AddSingleton<ChatService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
     builder.Services.AddSignalR(options =>
     {
         options.EnableDetailedErrors = true; // В продакшене выключить!

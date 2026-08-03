@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "JqMNcucp+WmCApUBWgd+ClgqAT2nGDoXH8VyL+bkkS8=",
+  "Hash": "k4JLRiaKKSmws36YxeTvYlc4fZTd7nhRbMNUYobawZw=",
   "Source": "FamilyChat",
   "BasePath": "_content/FamilyChat",
   "Mode": "Default",
@@ -53,6 +53,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot/elegant-style.css"
+    },
+    {
+      "Identity": "/home/kayzer/FamilyChat/wwwroot/index_old_backup.html",
+      "SourceId": "FamilyChat",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/kayzer/FamilyChat/wwwroot/",
+      "BasePath": "_content/FamilyChat",
+      "RelativePath": "index_old_backup.html",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/index_old_backup.html"
     },
     {
       "Identity": "/home/kayzer/FamilyChat/wwwroot/index.html",
@@ -110,6 +129,44 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot/index.html.backup2"
+    },
+    {
+      "Identity": "/home/kayzer/FamilyChat/wwwroot/index.html.step1.bak",
+      "SourceId": "FamilyChat",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/kayzer/FamilyChat/wwwroot/",
+      "BasePath": "_content/FamilyChat",
+      "RelativePath": "index.html.step1.bak",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/index.html.step1.bak"
+    },
+    {
+      "Identity": "/home/kayzer/FamilyChat/wwwroot/manifest.json",
+      "SourceId": "FamilyChat",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/kayzer/FamilyChat/wwwroot/",
+      "BasePath": "_content/FamilyChat",
+      "RelativePath": "manifest.json",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/manifest.json"
     }
   ]
 }

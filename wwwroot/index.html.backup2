@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DatCha</title>
+    <title>DatChaT</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <style>
         :root {
@@ -487,7 +487,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <span class="header-text">🌭 DatCha</span>
+            <span class="header-text">🌭 DatChaT</span>
             <button class="logout-btn" id="logoutBtn" onclick="logout()">Выйти</button>
             <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
         </div>

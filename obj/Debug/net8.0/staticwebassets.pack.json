@@ -21,6 +21,18 @@
       "PackagePath": "staticwebassets/index.html.backup2"
     },
     {
+      "Id": "/home/kayzer/FamilyChat/wwwroot/index.html.step1.bak",
+      "PackagePath": "staticwebassets/index.html.step1.bak"
+    },
+    {
+      "Id": "/home/kayzer/FamilyChat/wwwroot/index_old_backup.html",
+      "PackagePath": "staticwebassets/index_old_backup.html"
+    },
+    {
+      "Id": "/home/kayzer/FamilyChat/wwwroot/manifest.json",
+      "PackagePath": "staticwebassets/manifest.json"
+    },
+    {
       "Id": "obj/Debug/net8.0/staticwebassets/msbuild.FamilyChat.Microsoft.AspNetCore.StaticWebAssets.props",
       "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
     },

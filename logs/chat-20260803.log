@@ -1,0 +1,7 @@
+2026-08-03 03:05:01.417 +03:00 [INF] Application is shutting down...
+2026-08-03 03:05:58.359 +03:00 [INF] 🚀 Запуск DatChaT...
+2026-08-03 03:05:58.657 +03:00 [INF] ✅ Сервер запущен на http://0.0.0.0:3060
+2026-08-03 03:05:58.752 +03:00 [INF] Now listening on: http://0.0.0.0:3060
+2026-08-03 03:05:58.757 +03:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-08-03 03:05:58.757 +03:00 [INF] Hosting environment: Production
+2026-08-03 03:05:58.757 +03:00 [INF] Content root path: /home/kayzer/FamilyChat
