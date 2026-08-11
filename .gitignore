@@ -1,28 +1,65 @@
-# Build
+```
+# Build artifacts
 bin/
 obj/
+*.dll
+*.exe
+*.pdb
+*.so
+*.dylib
+*.jar
+*.war
+*.class
+
+# Dependencies
+node_modules/
+packages/
 
 # Logs
+*.log
 logs/
 
-# User uploads
-uploads/
+# Environment
+.env
+.env.local
+.env.*
 
-# IDE
+# Editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# .NET
-*.user
-*.suo
+# Testing
+coverage/
+htmlcov/
+*.coverage
 
-# Temp
-*.tmp
-*.bak
-
-# Secrets
-appsettings.Development.json
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```

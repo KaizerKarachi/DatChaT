@@ -20,27 +20,25 @@ try
     Log.Information("🚀 Запуск DatChaT...");
 
     var builder = WebApplication.CreateBuilder(args);
-
-    // Заменяем стандартный логгер на Serilog
     builder.Host.UseSerilog();
 
     // Регистрируем сервисы
     builder.Services.AddDbContext<ChatDbContext>();
-builder.Services.AddScoped<IChatService, ChatService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IMessageService, MessageService>();
+    builder.Services.AddScoped<IChatService, ChatService>();
+    builder.Services.AddScoped<IUserService, UserService>();
+    builder.Services.AddScoped<IMessageService, MessageService>();
     builder.Services.AddSignalR(options =>
     {
-        options.EnableDetailedErrors = true; // В продакшене выключить!
-        options.MaximumReceiveMessageSize = 32 * 1024; // 32 KB максимум
+        options.EnableDetailedErrors = false;
+        options.MaximumReceiveMessageSize = 32 * 1024;
+        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
     });
 
     var app = builder.Build();
 
     // === MIDDLEWARE ===
     app.UseMiddleware<GlobalExceptionHandler>();
-
-    // Статические файлы
     app.UseStaticFiles();
 
     var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
@@ -100,34 +98,6 @@ builder.Services.AddScoped<IMessageService, MessageService>();
         var fileType = file.ContentType.StartsWith("image/") ? "image" : "file";
         Log.Information("📎 Загружен файл: {Name} ({Type}, {Size} байт)", file.FileName, fileType, file.Length);
         return Results.Json(new { fileName = file.FileName, fileUrl = $"/uploads/{fileName}", fileType });
-    });
-
-    // Фоновая очистка старых файлов
-    _ = Task.Run(async () =>
-    {
-        while (true)
-        {
-            try
-            {
-                await Task.Delay(TimeSpan.FromDays(1));
-                var files = Directory.GetFiles(uploadsPath);
-                var deleted = 0;
-                foreach (var file in files)
-                {
-                    if (File.GetLastWriteTimeUtc(file) < DateTime.UtcNow.AddDays(-30))
-                    {
-                        File.Delete(file);
-                        deleted++;
-                    }
-                }
-                if (deleted > 0)
-                    Log.Information(" Удалено старых файлов: {Count}", deleted);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Ошибка в фоновой очистке");
-            }
-        }
     });
 
     Log.Information("✅ Сервер запущен на {Url}", builder.WebHost.GetSetting("urls") ?? "http://0.0.0.0:3060");

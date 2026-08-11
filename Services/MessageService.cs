@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FamilyChat.Data;
@@ -15,13 +13,9 @@ public class MessageService : IMessageService
     private readonly ChatDbContext _db;
     private readonly ILogger<MessageService> _logger;
 
-    public MessageService(ChatDbContext db, ILogger<MessageService> logger) 
-    { 
-        _db = db; 
-        _logger = logger; 
-    }
+    public MessageService(ChatDbContext db, ILogger<MessageService> logger) => (_db, _logger) = (db, logger);
 
-    public async Task<PrivateMessage> SavePrivateMessageAsync(string senderId, string receiverId, string text) 
+    public async Task<PrivateMessage> SavePrivateMessageAsync(string senderId, string receiverId, string text)
     {
         var pm = new PrivateMessage 
         { 
@@ -39,12 +33,10 @@ public class MessageService : IMessageService
         return pm;
     }
 
-    public async Task<List<PrivateMessage>> GetPrivateMessagesAsync(string userId1, string userId2) 
-    {
-        return await _db.PrivateMessages
+    public Task<List<PrivateMessage>> GetPrivateMessagesAsync(string userId1, string userId2) => 
+        _db.PrivateMessages.AsNoTracking()
             .Where(pm => (pm.SenderId == userId1 && pm.ReceiverId == userId2) || 
                          (pm.SenderId == userId2 && pm.ReceiverId == userId1))
             .OrderBy(pm => pm.Timestamp)
             .ToListAsync();
-    }
 }
