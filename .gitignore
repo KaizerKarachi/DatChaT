@@ -1,1 +1,30 @@
-Nothing needs to be added to .gitignore since only a README.md file was modified and no build artifacts, dependencies, or temporary files were present in the changes.
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+logs/
+
+# Uploads
+uploads/
+wwwroot/uploads/
+
+# Backups
+*.backup
+*.old
+*.before-*
+*.broken-*
+wwwroot/js.backup/
+wwwroot/css.backup/
+
+# IDE
+.vs/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
