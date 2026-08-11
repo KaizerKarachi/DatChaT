@@ -1,65 +1,10 @@
-```
-# Build artifacts
-bin/
-obj/
-*.dll
-*.exe
-*.pdb
-*.so
-*.dylib
-*.jar
-*.war
-*.class
+# Examples 1:
+# Project with only source/config files
 
-# Dependencies
-node_modules/
-packages/
-
-# Logs
-*.log
-logs/
-
-# Environment
-.env
+# Example 2:
+# Project with artifacts
+*.pyc
+__pycache__/
+dist/
 .env.local
-.env.*
-
-# Editors
 .vscode/
-.idea/
-*.swp
-*.swo
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Testing
-coverage/
-htmlcov/
-*.coverage
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-```
