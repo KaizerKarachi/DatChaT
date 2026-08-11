@@ -1,10 +1,44 @@
-# Examples 1:
-# Project with only source/config files
+```
+# Backup files
+*.backup
+*.before-fix
+*.bak
+*.step1.bak
+*_old_backup.*
 
-# Example 2:
-# Project with artifacts
-*.pyc
-__pycache__/
+# Dependencies
+node_modules/
+packages/
+
+# Build outputs
+bin/
+obj/
+out/
 dist/
+build/
+publish/
+
+# Logs
+*.log
+
+# Environment
+.env
 .env.local
+.env.*
+
+# Editors
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+htmlcov/
+.coverage
+*.tmp
+```
