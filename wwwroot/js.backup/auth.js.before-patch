@@ -1,0 +1,113 @@
+window.currentUser = null;
+window.sessionToken = localStorage.getItem("sessionToken") || null;
+
+function login() {
+    const nickname = document.getElementById("nicknameInput").value.trim();
+    const password = document.getElementById("passwordInput").value.trim();
+
+    if (!nickname || !password) {
+        alert("Введите ник и пароль");
+        return;
+    }
+
+    if (!window.connection || window.connection.state !== "Connected") {
+        alert("Соединение с сервером ещё не установлено");
+        return;
+    }
+
+    connection.invoke("RegisterOrLogin", nickname, password)
+        .catch(err => {
+            console.error("Ошибка входа:", err);
+            alert("Ошибка подключения: " + err.message);
+        });
+}
+
+async function loginByToken() {
+    if (!window.sessionToken) return false;
+
+    const nickname = localStorage.getItem("nickname");
+
+    if (!nickname) {
+        localStorage.removeItem("sessionToken");
+        window.sessionToken = null;
+        return false;
+    }
+
+    if (!window.connection || window.connection.state !== "Connected") {
+        return false;
+    }
+
+    try {
+        await connection.invoke(
+            "JoinByToken",
+            nickname,
+            window.sessionToken
+        );
+
+        return true;
+    }
+    catch (e) {
+        console.error("Ошибка входа по токену:", e);
+
+        localStorage.removeItem("sessionToken");
+        localStorage.removeItem("nickname");
+        window.sessionToken = null;
+        window.currentUser = null;
+
+        return false;
+    }
+}
+
+function logout() {
+    localStorage.removeItem("sessionToken");
+    localStorage.removeItem("nickname");
+
+    window.sessionToken = null;
+    window.currentUser = null;
+
+    showLogin();
+}
+
+connection.on("LoginSuccess", data => {
+    console.log("LoginSuccess:", data);
+
+    window.currentUser = data.Nickname;
+    window.sessionToken = data.SessionToken;
+
+    localStorage.setItem("nickname", data.Nickname);
+    localStorage.setItem("sessionToken", data.SessionToken);
+
+    showChat();
+
+    const userElement = document.getElementById("currentUser");
+
+    if (userElement) {
+        userElement.textContent = data.Nickname;
+    }
+});
+
+connection.on("ForceLogout", message => {
+    alert(message || "Вы были отключены");
+
+    localStorage.removeItem("sessionToken");
+    localStorage.removeItem("nickname");
+
+    window.sessionToken = null;
+    window.currentUser = null;
+
+    showLogin();
+});
+
+connection.on("SystemMessage", message => {
+    console.log("System:", message);
+});
+
+document.getElementById("loginBtn")?.addEventListener("click", login);
+
+document.getElementById("logoutBtn")?.addEventListener("click", logout);
+
+document.getElementById("passwordInput")?.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+        login();
+    }
+});

@@ -1,0 +1,37 @@
+async function startConnection() {
+    if (!connection) {
+        if (!createConnection()) {
+            console.error("SignalR: не удалось создать соединение");
+            return;
+        }
+    }
+
+    try {
+        // 🛡️ Проверяем оба состояния: Connected и Connecting
+        if (connection.state === signalR.HubConnectionState.Connected) {
+            console.log("SignalR: уже подключён");
+            return;
+        }
+        
+        if (connection.state === signalR.HubConnectionState.Connecting) {
+            console.log("SignalR: уже подключается, ждём...");
+            return;
+        }
+
+        console.log("SignalR: подключение к /chat...");
+        await connection.start();
+        console.log("SignalR: ПОДКЛЮЧЁН");
+
+    } catch (e) {
+        console.error("SignalR: ошибка подключения", e);
+        setTimeout(startConnection, 3000);
+    }
+}
+
+window.startConnection = startConnection;
+
+createConnection();
+
+window.addEventListener("DOMContentLoaded", () => {
+    startConnection();
+});

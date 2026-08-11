@@ -1,0 +1,485 @@
+const messagesBox = document.getElementById("messages");
+const messageInput = document.getElementById("messageInput");
+
+function clearMessages() {
+    if (messagesBox)
+        messagesBox.innerHTML = "";
+}
+
+function scrollBottom() {
+    if (!messagesBox) return;
+
+    messagesBox.scrollTop = messagesBox.scrollHeight;
+}
+
+function renderMessage(msg) {
+
+    if (!messagesBox)
+        return;
+
+    const id = msg.id || msg.Id;
+
+    const nickname =
+        msg.nickname ||
+        msg.Nickname ||
+        "";
+
+    const text =
+        msg.text ??
+        msg.Text ??
+        "";
+
+    const time =
+        msg.timestamp ||
+        msg.Timestamp ||
+        "";
+
+    const mine =
+        nickname === window.currentUser;
+
+    const div = document.createElement("div");
+
+    div.className =
+        mine
+        ? "message mine"
+        : "message";
+
+    div.id = "msg-" + id;
+
+    let hhmm = "";
+
+    if (time) {
+        const date = new Date(time);
+
+        if (!isNaN(date.getTime())) {
+            hhmm = date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+        } else {
+            hhmm = time;
+        }
+    }
+
+    /*
+     * Основное содержимое сообщения
+     */
+    const header = document.createElement("div");
+    header.className = "message-header";
+    header.textContent = nickname;
+
+    const body = document.createElement("div");
+    body.className = "message-body";
+
+    /*
+     * Удалённое сообщение
+     */
+    if (msg.IsDeleted || msg.isDeleted) {
+        body.textContent = "Сообщение удалено";
+        body.classList.add("deleted-message");
+    } else {
+        body.textContent = text;
+    }
+
+    const footer = document.createElement("div");
+    footer.className = "message-footer";
+    footer.textContent = hhmm;
+
+    div.appendChild(header);
+    div.appendChild(body);
+    div.appendChild(footer);
+
+    /*
+     * Кнопки действий
+     */
+    if (id && !(msg.IsDeleted || msg.isDeleted)) {
+
+        const actions = document.createElement("div");
+        actions.className = "message-actions";
+
+        /*
+         * Закрепить
+         * Только администратор
+         */
+        if (window.isAdmin) {
+
+            const pinBtn = document.createElement("button");
+
+            pinBtn.type = "button";
+            pinBtn.className = "message-action-btn";
+            pinBtn.textContent = "📌";
+            pinBtn.title = "Закрепить сообщение";
+
+            pinBtn.addEventListener("click", async (e) => {
+
+                e.stopPropagation();
+
+                try {
+
+                    await connection.invoke(
+                        "PinMessage",
+                        Number(id)
+                    );
+
+                } catch (err) {
+
+                    console.error(
+                        "Ошибка закрепления:",
+                        err
+                    );
+
+                    showToast?.(
+                        "Не удалось закрепить сообщение"
+                    );
+                }
+
+            });
+
+            actions.appendChild(pinBtn);
+        }
+
+        /*
+         * Удалить
+         * Пользователь может удалить своё сообщение.
+         */
+        if (mine) {
+
+            const deleteBtn =
+                document.createElement("button");
+
+            deleteBtn.type = "button";
+            deleteBtn.className = "message-action-btn delete";
+            deleteBtn.textContent = "🗑";
+            deleteBtn.title = "Удалить сообщение";
+
+            deleteBtn.addEventListener("click", async (e) => {
+
+                e.stopPropagation();
+
+                try {
+
+                    await connection.invoke(
+                        "DeleteMessage",
+                        Number(id)
+                    );
+
+                } catch (err) {
+
+                    console.error(
+                        "Ошибка удаления:",
+                        err
+                    );
+
+                    showToast?.(
+                        "Не удалось удалить сообщение"
+                    );
+                }
+
+            });
+
+            actions.appendChild(deleteBtn);
+        }
+
+        if (actions.children.length) {
+            div.appendChild(actions);
+        }
+    }
+
+    /*
+     * Файл
+     */
+    const fileUrl =
+        msg.fileUrl ||
+        msg.FileUrl ||
+        "";
+
+    const fileType =
+        msg.fileType ||
+        msg.FileType ||
+        "";
+
+    if (fileUrl && !(msg.IsDeleted || msg.isDeleted)) {
+
+        const fileLink =
+            document.createElement("a");
+
+        fileLink.href = fileUrl;
+        fileLink.target = "_blank";
+        fileLink.rel = "noopener";
+        fileLink.className = "message-file";
+
+        if (fileType.startsWith("image/")) {
+
+            const img =
+                document.createElement("img");
+
+            img.src = fileUrl;
+            img.alt = text;
+            img.className = "message-image";
+
+            fileLink.appendChild(img);
+
+        } else {
+
+            fileLink.textContent =
+                "📎 " + text;
+
+        }
+
+        div.insertBefore(
+            fileLink,
+            footer
+        );
+    }
+
+    messagesBox.appendChild(div);
+
+    scrollBottom();
+}
+
+
+/*
+ * Удалённое сообщение:
+ * сначала показываем надпись 3 секунды,
+ * потом убираем сообщение полностью.
+ */
+function removeMessage(messageOrId) {
+
+    const id =
+        typeof messageOrId === "object"
+            ? (messageOrId.Id ?? messageOrId.id)
+            : messageOrId;
+
+    if (!id)
+        return;
+
+    const element =
+        document.getElementById("msg-" + id);
+
+    if (!element)
+        return;
+
+    const body =
+        element.querySelector(".message-body");
+
+    if (body) {
+
+        body.textContent =
+            "Сообщение удалено";
+
+        body.classList.add(
+            "deleted-message"
+        );
+    }
+
+    const actions =
+        element.querySelector(".message-actions");
+
+    if (actions)
+        actions.remove();
+
+    const file =
+        element.querySelector(".message-file");
+
+    if (file)
+        file.remove();
+
+    setTimeout(() => {
+
+        element.style.opacity = "0";
+        element.style.transform =
+            "translateY(5px)";
+
+        setTimeout(() => {
+            element.remove();
+        }, 200);
+
+    }, 3000);
+}
+
+
+/*
+ * Отправка сообщения
+ */
+async function sendMessage() {
+
+    if (!messageInput)
+        return;
+
+    const text =
+        messageInput.value.trim();
+
+    if (!text)
+        return;
+
+    if (!connection ||
+        connection.state !== signalR.HubConnectionState.Connected) {
+
+        showToast?.(
+            "Нет соединения с сервером"
+        );
+
+        return;
+    }
+
+    try {
+
+        await connection.invoke(
+            "SendMessage",
+            text
+        );
+
+        messageInput.value = "";
+
+    } catch (e) {
+
+        console.error(e);
+
+        showToast?.(
+            "Ошибка отправки сообщения"
+        );
+    }
+}
+
+
+/*
+ * Enter
+ */
+messageInput?.addEventListener(
+    "keydown",
+    e => {
+
+        if (e.key === "Enter" && !e.shiftKey) {
+
+            e.preventDefault();
+
+            sendMessage();
+        }
+    }
+);
+
+
+/*
+ * Кнопка отправки
+ */
+document
+    .getElementById("sendBtn")
+    ?.addEventListener(
+        "click",
+        sendMessage
+    );
+
+
+/*
+ * 😊 СМАЙЛЫ
+ */
+const emojiBtn =
+    document.getElementById("emojiBtn");
+
+if (emojiBtn && messageInput) {
+
+    const emojis = [
+        "😀","😃","😄","😁","😆",
+        "😅","😂","🤣","😊","🙂",
+        "😉","😍","🥰","😘","😎",
+        "🤔","😢","😭","😡","🤬",
+        "👍","👎","👏","🙏","❤️",
+        "🔥","🎉","😂","🤣","💪",
+        "👌","🤝","👀","💋","🎵"
+    ];
+
+    let picker = null;
+
+    emojiBtn.addEventListener(
+        "click",
+        e => {
+
+            e.stopPropagation();
+
+            if (picker) {
+                picker.remove();
+                picker = null;
+                return;
+            }
+
+            picker =
+                document.createElement("div");
+
+            picker.className =
+                "emoji-picker";
+
+            emojis.forEach(emoji => {
+
+                const button =
+                    document.createElement("button");
+
+                button.type = "button";
+                button.textContent = emoji;
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        const start =
+                            messageInput.selectionStart ??
+                            messageInput.value.length;
+
+                        const end =
+                            messageInput.selectionEnd ??
+                            messageInput.value.length;
+
+                        messageInput.value =
+                            messageInput.value.slice(0, start) +
+                            emoji +
+                            messageInput.value.slice(end);
+
+                        messageInput.focus();
+
+                        const pos =
+                            start + emoji.length;
+
+                        messageInput.setSelectionRange(
+                            pos,
+                            pos
+                        );
+                    }
+                );
+
+                picker.appendChild(button);
+            });
+
+            document.body.appendChild(picker);
+
+            const rect =
+                emojiBtn.getBoundingClientRect();
+
+            picker.style.position = "fixed";
+            picker.style.left =
+                Math.max(
+                    10,
+                    rect.left - 180
+                ) + "px";
+
+            picker.style.top =
+                (rect.top - 210) + "px";
+
+            picker.style.zIndex = "10000";
+        }
+    );
+
+    document.addEventListener(
+        "click",
+        e => {
+
+            if (
+                picker &&
+                !picker.contains(e.target) &&
+                e.target !== emojiBtn
+            ) {
+
+                picker.remove();
+                picker = null;
+            }
+        }
+    );
+}

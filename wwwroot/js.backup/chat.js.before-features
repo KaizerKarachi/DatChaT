@@ -1,0 +1,174 @@
+// ===============================
+// DatChaT v2
+// chat.js
+// ===============================
+
+const messagesBox = document.getElementById("messages");
+const messageInput = document.getElementById("messageInput");
+
+// ---------------------
+// Очистить сообщения
+// ---------------------
+
+function clearMessages() {
+
+    if (messagesBox)
+        messagesBox.innerHTML = "";
+
+}
+
+// ---------------------
+// Скролл вниз
+// ---------------------
+
+function scrollBottom() {
+
+    if (!messagesBox) return;
+
+    messagesBox.scrollTop =
+        messagesBox.scrollHeight;
+
+}
+
+// ---------------------
+// Отрисовать сообщение
+// ---------------------
+
+function renderMessage(msg) {
+
+    if (!messagesBox)
+        return;
+
+    const mine =
+        msg.nickname === window.currentUser ||
+        msg.Nickname === window.currentUser;
+
+    const div =
+        document.createElement("div");
+
+    div.className =
+        mine
+        ? "message mine"
+        : "message";
+
+    div.id =
+        "msg-" + (msg.id || msg.Id);
+
+    const nickname =
+        msg.nickname || msg.Nickname || "";
+
+    const text =
+        msg.text || msg.Text || "";
+
+    const time =
+        msg.timestamp ||
+        msg.Timestamp ||
+        "";
+
+    let hhmm = "";
+
+    if (time) {
+
+        hhmm =
+            new Date(time)
+            .toLocaleTimeString([],{
+                hour:"2-digit",
+                minute:"2-digit"
+            });
+
+    }
+
+    div.innerHTML = `
+
+        <div class="message-header">
+
+            ${nickname}
+
+        </div>
+
+        <div class="message-body">
+
+            ${text}
+
+        </div>
+
+        <div class="message-footer">
+
+            ${hhmm}
+
+        </div>
+
+    `;
+
+    messagesBox.appendChild(div);
+
+    scrollBottom();
+
+}
+
+// ---------------------
+// Удалить сообщение
+// ---------------------
+
+function removeMessage(id) {
+
+    document
+        .getElementById("msg-"+id)
+        ?.remove();
+
+}
+
+// ---------------------
+// Отправить сообщение
+// ---------------------
+
+async function sendMessage() {
+
+    const text =
+        messageInput.value.trim();
+
+    if (!text)
+        return;
+
+    try {
+
+        await connection.invoke(
+            "SendMessage",
+            text
+        );
+
+        messageInput.value = "";
+
+    }
+    catch(e){
+
+        console.error(e);
+
+    }
+
+}
+
+// ---------------------
+// Enter
+// ---------------------
+
+messageInput?.addEventListener(
+    "keydown",
+    e=>{
+
+        if(e.key==="Enter")
+            sendMessage();
+
+    }
+);
+
+// ---------------------
+// Кнопка
+// ---------------------
+
+document
+.getElementById("sendBtn")
+?.addEventListener(
+    "click",
+    sendMessage
+);

@@ -1,0 +1,136 @@
+// ===============================
+// DatChaT — SignalR
+// ===============================
+
+window.connection = new signalR.HubConnectionBuilder()
+    .withUrl("/chat")
+    .withAutomaticReconnect()
+    .build();
+
+connection.onreconnecting(() => {
+    console.log("SignalR: переподключение...");
+});
+
+connection.onreconnected(async () => {
+    console.log("SignalR: соединение восстановлено");
+
+    if (window.sessionToken) {
+        await loginByToken();
+    }
+});
+
+connection.onclose(() => {
+    console.log("SignalR: соединение закрыто");
+});
+
+
+// --------------------
+// История
+// --------------------
+
+connection.on("LoadHistory", messages => {
+    clearMessages();
+
+    if (!messages) return;
+
+    messages.forEach(renderMessage);
+});
+
+
+// --------------------
+// Новое сообщение
+// --------------------
+
+connection.on("ReceiveMessage", message => {
+    renderMessage(message);
+});
+
+
+// --------------------
+// Пользователи
+// --------------------
+
+connection.on("UpdateUsers", users => {
+    renderUsers(users);
+});
+
+connection.on("UpdateOnlineUsers", users => {
+    renderUsers(users);
+});
+
+
+// --------------------
+// Закреп
+// --------------------
+
+connection.on("PinnedMessage", message => {
+    renderPinned(message);
+});
+
+connection.on("MessageUnpinned", () => {
+    clearPinned();
+});
+
+
+// --------------------
+// Удаление
+// --------------------
+
+connection.on("MessageDeleted", id => {
+    removeMessage(id);
+});
+
+
+// --------------------
+// Принудительный выход
+// --------------------
+
+connection.on("ForceLogout", message => {
+    localStorage.removeItem("sessionToken");
+    localStorage.removeItem("nickname");
+
+    window.sessionToken = null;
+    window.currentUser = null;
+
+    alert(message || "Выполнен вход с другого устройства");
+
+    if (typeof showLogin === "function") {
+        showLogin();
+    }
+});
+
+
+// --------------------
+// Успешный вход
+// --------------------
+
+connection.on("LoginSuccess", data => {
+    console.log("Вход выполнен:", data.Nickname);
+});
+
+
+// --------------------
+// Запуск
+// --------------------
+
+async function connectSignalR() {
+    if (connection.state === "Connected")
+        return;
+
+    try {
+        await connection.start();
+
+        console.log("SignalR подключён");
+
+        if (window.sessionToken) {
+            await loginByToken();
+        }
+
+    } catch (e) {
+        console.error("SignalR ошибка:", e);
+
+        setTimeout(connectSignalR, 3000);
+    }
+}
+
+window.connectSignalR = connectSignalR;

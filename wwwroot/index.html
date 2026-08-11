@@ -2,528 +2,309 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+
     <title>DatChaT</title>
+
+    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/theme.css">
+    <link rel="stylesheet" href="/css/chat.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+    <!-- === ЭКСКЛЮЗИВНЫЕ СТИЛИ ПИКЕРА СМАЙЛОВ === -->
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        
-        body {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        
-        .container {
-            width: 100%;
-            max-width: 1400px;
-            height: 95vh;
+        .emoji-picker {
+            position: fixed;
+            bottom: 90px; /* Чуть выше поля ввода */
+            right: 280px; /* Выравнивание по правому краю */
+            width: 340px;
             background: rgba(15, 23, 42, 0.95);
-            border-radius: 24px;
-            display: flex;
-            overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        /* Sidebar */
-        .sidebar {
-            width: 350px;
-            background: rgba(30, 41, 59, 0.8);
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .sidebar-header {
-            padding: 24px;
-            background: linear-gradient(135deg, #2D5016 0%, #4A7C2E 100%);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: white;
-            font-size: 24px;
-            font-weight: 700;
-        }
-        
-        .online-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #4ade80;
-            font-size: 14px;
-        }
-        
-        .online-dot {
-            width: 8px;
-            height: 8px;
-            background: #4ade80;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        .users-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-        }
-        
-        .user-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px); /* Для Safari на Mac */
+            border: 1px solid rgba(74, 222, 128, 0.3);
             border-radius: 16px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: rgba(255, 255, 255, 0.03);
-        }
-        
-        .user-item:hover {
-            background: rgba(255, 255, 255, 0.08);
-            transform: translateX(4px);
-        }
-        
-        .user-item.active {
-            background: linear-gradient(135deg, rgba(45, 80, 22, 0.4) 0%, rgba(74, 124, 46, 0.4) 100%);
-            border: 1px solid rgba(74, 124, 46, 0.5);
-        }
-        
-        .user-avatar {
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 20px;
-            color: white;
-            flex-shrink: 0;
-        }
-        
-        .user-info {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .user-name {
-            font-weight: 600;
-            color: white;
-            margin-bottom: 4px;
-            font-size: 16px;
-        }
-        
-        .user-status {
-            font-size: 13px;
-            color: #4ade80;
-        }
-        
-        .user-status.offline {
-            color: #94a3b8;
-        }
-        
-        /* Main Chat Area */
-        .chat-main {
-            flex: 1;
-            display: flex;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+            display: none;
             flex-direction: column;
-            background: rgba(15, 23, 42, 0.6);
+            z-index: 1000;
+            animation: emojiSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        
-        .chat-header {
-            padding: 20px 28px;
-            background: linear-gradient(135deg, rgba(45, 80, 22, 0.3) 0%, rgba(74, 124, 46, 0.3) 100%);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+
+        @keyframes emojiSlideUp {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        
-        .chat-header-info {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        
-        .chat-header h3 {
-            color: white;
-            font-size: 18px;
-            font-weight: 600;
-        }
-        
-        .chat-header p {
-            color: #4ade80;
+
+        .emoji-header {
+            padding: 14px 18px;
             font-size: 13px;
+            font-weight: 600;
+            color: #4ade80;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
         }
-        
-        .chat-header-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .icon-btn {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.08);
-            border: none;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            font-size: 18px;
-        }
-        
-        .icon-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: scale(1.05);
-        }
-        
-        /* Messages */
-        .messages {
-            flex: 1;
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            padding: 14px;
+            max-height: 280px;
             overflow-y: auto;
-            padding: 28px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
         }
-        
-        .message {
-            max-width: 75%;
-            padding: 14px 20px;
-            border-radius: 20px;
-            animation: messageAppear 0.3s ease;
-            position: relative;
+
+        .emoji-grid::-webkit-scrollbar { width: 6px; }
+        .emoji-grid::-webkit-scrollbar-thumb {
+            background: rgba(74, 222, 128, 0.4);
+            border-radius: 3px;
         }
-        
-        @keyframes messageAppear {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .message.left {
-            align-self: flex-start;
-            background: rgba(30, 41, 59, 0.8);
-            color: white;
-            border-bottom-left-radius: 6px;
-        }
-        
-        .message.right {
-            align-self: flex-end;
-            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-            color: white;
-            border-bottom-right-radius: 6px;
-        }
-        
-        .message .user {
-            font-size: 12px;
-            opacity: 0.9;
-            margin-bottom: 6px;
-            font-weight: 600;
-        }
-        
-        .message .text {
-            font-size: 15px;
-            line-height: 1.5;
-        }
-        
-        .message .time {
-            font-size: 11px;
-            opacity: 0.7;
-            margin-top: 6px;
-            text-align: right;
-        }
-        
-        /* Input Area */
-        .input-area {
-            padding: 22px 28px;
-            background: rgba(30, 41, 59, 0.6);
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-        
-        .message-input {
-            flex: 1;
-            padding: 14px 22px;
-            border-radius: 26px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(15, 23, 42, 0.6);
-            color: white;
-            font-size: 15px;
-            outline: none;
-            transition: all 0.2s;
-        }
-        
-        .message-input:focus {
-            background: rgba(15, 23, 42, 0.8);
-            border-color: #4A7C2E;
-        }
-        
-        .message-input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-        }
-        
-        .send-btn {
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-            border: none;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+
+        .emoji-item {
             font-size: 22px;
-            transition: all 0.2s;
-        }
-        
-        .send-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
-        }
-        
-        /* Login Screen */
-        .login-screen {
-            flex: 1;
             display: flex;
-            flex-direction: column;
-            justify-content: center;
             align-items: center;
-            gap: 20px;
-            background: rgba(15, 23, 42, 0.8);
-        }
-        
-        .login-screen h2 {
-            color: white;
-            font-size: 36px;
-            margin-bottom: 10px;
-            font-weight: 700;
-        }
-        
-        .login-screen input {
-            padding: 16px 26px;
-            width: 350px;
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(30, 41, 59, 0.6);
-            color: white;
-            font-size: 16px;
-            outline: none;
-            transition: all 0.2s;
-        }
-        
-        .login-screen input:focus {
-            background: rgba(30, 41, 59, 0.9);
-            border-color: #4A7C2E;
-        }
-        
-        .login-screen button {
-            padding: 16px 52px;
-            background: linear-gradient(135deg, #4A7C2E 0%, #5B9C3E 100%);
-            color: white;
-            border: none;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: 600;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
+            user-select: none;
         }
-        
-        .login-screen button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(74, 124, 46, 0.4);
+
+        .emoji-item:hover {
+            background: rgba(74, 222, 128, 0.2);
+            transform: scale(1.25);
         }
-        
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
+
+        .emoji-item:active {
+            transform: scale(0.9);
         }
-        
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: rgba(74, 124, 46, 0.5);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(74, 124, 46, 0.7);
-        }
-        
-        .main { display: none; }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <img src="/images/logo.svg" alt="DT" style="height: 40px;">
-                    <span>DatChaT</span>
-                </div>
-                <div class="online-status">
-                    <div class="online-dot"></div>
-                    <span>Онлайн: <span id="userCount">0</span></span>
-                </div>
-            </div>
-            <div class="users-list" id="usersList"></div>
-        </div>
-        
-        <!-- Main Content -->
-        <div class="chat-main">
-            <!-- Login Screen -->
-            <div class="login-screen" id="loginScreen">
-                <h2>🌭 Вход в DatChaT</h2>
-                <input type="text" id="nicknameInput" placeholder="#твой ник" onkeypress="if(event.key==='Enter') joinChat()">
-                <input type="password" id="passwordInput" placeholder="Пароль" onkeypress="if(event.key==='Enter') joinChat()">
-                <button onclick="joinChat()">Войти в чат</button>
-            </div>
-            
-            <!-- Chat Area -->
-            <div class="main" id="mainContent">
-                <div class="chat-header">
-                    <div class="chat-header-info">
-                        <div class="user-avatar" style="background: linear-gradient(135deg, #4A7C2E, #5B9C3E); width: 44px; height: 44px; font-size: 18px;" id="currentAvatar">П</div>
-                        <div>
-                            <h3 id="currentChatName">Семейный чат</h3>
-                            <p>Онлайн</p>
-                        </div>
-                    </div>
-                    <div class="chat-header-actions">
-                        <button class="icon-btn">🔍</button>
-                        <button class="icon-btn">👥</button>
-                        <button class="icon-btn">🌙</button>
-                        <button class="icon-btn" onclick="hardReset()">⚙️</button>
-                    </div>
-                </div>
-                
-                <div class="messages" id="messages"></div>
-                
-                <div class="input-area">
-                    <button class="icon-btn">📎</button>
-                    <button class="icon-btn">😊</button>
-                    <input type="text" class="message-input" id="messageInput" placeholder="Введите сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
-                    <button class="icon-btn">🎤</button>
-                    <button class="send-btn" onclick="sendMessage()">➤</button>
-                </div>
-            </div>
-        </div>
+
+<div id="loginScreen" class="login-screen">
+    <div class="login-card">
+        <h1>DatChaT</h1>
+        <p class="subtitle">Семейный мессенджер</p>
+
+        <input id="nicknameInput" type="text" placeholder="#никнейм" autocomplete="username">
+        <input id="passwordInput" type="password" placeholder="Пароль" autocomplete="current-password">
+        <button id="loginBtn">Войти</button>
     </div>
-    
-    <script>
-        const connection = new signalR.HubConnectionBuilder().withUrl("/chat").withAutomaticReconnect().build();
-        let loginSuccess = false;
-        let currentNickname = '';
+</div>
 
-        connection.on("ReceiveMessage", (msg) => {
-            const userName = msg.nickname || msg.Nickname || msg.User || 'Неизвестный';
-            const text = msg.text || msg.Text || '';
-            const time = msg.time || msg.Time || new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
-            const isMe = userName === currentNickname;
-            
-            const div = document.createElement('div');
-            div.className = 'message ' + (isMe ? 'right' : 'left');
-            div.innerHTML = `
-                ${!isMe ? '<div class="user">' + userName + '</div>' : ''}
-                <div class="text">${text}</div>
-                <div class="time">${time}</div>
-            `;
-            
-            document.getElementById('messages').appendChild(div);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+<div id="app" class="app hidden">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div>
+                <div class="logo">DatChaT</div>
+                <div class="online">Онлайн: <span id="userCount">0</span></div>
+            </div>
+            <button id="logoutBtn" class="header-btn">Выход</button>
+        </div>
+        <div id="usersList" class="users-list"></div>
+    </aside>
+
+    <main class="chat">
+        <header class="chat-header">
+            <div>
+                <div class="chat-title">Семейный чат</div>
+                <div class="chat-status">SignalR</div>
+            </div>
+            <div class="header-actions">
+                <button id="themeBtn">🌙</button>
+                <button id="searchBtn">🔍</button>
+            </div>
+        </header>
+
+        <div id="pinnedContainer" class="pinned hidden">
+            <span>📌</span>
+            <span id="pinnedText"></span>
+        </div>
+
+        <section id="messages" class="messages"></section>
+
+        <footer class="composer">
+            <button id="attachBtn">📎</button>
+            <input id="messageInput" placeholder="Введите сообщение...">
+            <button id="emojiBtn">😊</button>
+            <button id="sendBtn">➜</button>
+        </footer>
+    </main>
+</div>
+
+<!-- HTML-контейнер для пикера смайлов -->
+<div id="emojiPicker" class="emoji-picker">
+    <div class="emoji-header">Выберите смайл</div>
+    <div class="emoji-grid" id="emojiGrid"></div>
+</div>
+
+<script src="/js/signalr.js?v=6"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/chat.js?v=4"></script>
+<script src="/js/pinned.js"></script>
+<script src="/js/users.js?v=2"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/app.js?v=2"></script>
+
+<!-- === ЛОГИКА ЭКСКЛЮЗИВНОГО ПИКЕРА СМАЙЛОВ === -->
+<script>
+    (function() {
+        const emojiPicker = document.getElementById('emojiPicker');
+        const emojiBtn = document.getElementById('emojiBtn');
+        const messageInput = document.getElementById('messageInput');
+        const emojiGrid = document.getElementById('emojiGrid');
+
+        // Эксклюзивная подборка смайлов (можно легко добавить или убрать свои)
+        const exclusiveEmojis = [
+            '😀','😃','😄','😁','😆','😅','🤣','😂',
+            '🙂','🙃','😉','😊','😇','🥰','😍','🤩',
+            '😘','😗','😚','😙','🥲','😋','😛','😜',
+            '🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐',
+            '🤨','😐','😑','😶','🫥','😏','😒','🙄',
+            '😬','🤥','😌','😔','😪','🤤','😴','😷',
+            '🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴',
+            '😵','🤯','🤠','🥳','🥸','😎','🤓','🧐',
+            '😕','🫤','😟','🙁','☹️','😮','😯','😲',
+            '😳','🥺','🥹','😦','😧','😨','😰','😥',
+            '😢','😭','😱','😖','😣','😞','😓','😩',
+            '😫','🥱','😤','😡','😠','🤬','😈','👿',
+            '💀','☠️','💩','🤡','👹','👺','👻','👽',
+            '👾','🤖','😺','😸','😹','😻','😼','😽',
+            '👍','👎','👊','✊','🤛','🤜','👏','🙌',
+            '👐','🤲','🤝','🙏','✌️','🤞','🫰','🤟',
+            '🤘','🤙','👈','👉','👆','🖕','👇','☝️',
+            '🫵','👋','🤚','🖐️','✋','🖖','🫱','🫲',
+            '❤️','🧡','💛','💚','💙','💜','🖤','🤍',
+            '🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓',
+            '💗','💖','💘','💝','💟','🔥','💯','🎉',
+            '🎊','🎈','🎁','🏆','🥇','🎯','💎','👑',
+            '🚀','⚡','💥','💫','💦','💨','🕳️','💣',
+            '💬','👁️','👀','🧠','🫀','🫁','🦷','🦴',
+            '👃','👂','👄','👅','👶','🧒','👦','👧',
+            '🧑','👱','👨','🧔','👩','🧓','👴','👵',
+            '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼',
+            '🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔',
+            '🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺',
+            '🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌',
+            '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇',
+            '🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥',
+            '🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️',
+            '🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠',
+            '🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳',
+            '🧈','🥞','🧇','🥓','🥩','🍗','🍖','🦴',
+            '🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆',
+            '🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝',
+            '🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤',
+            '🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡',
+            '🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮',
+            '🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜',
+            '🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤',
+            '🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸',
+            '🍹','🧉','🍾','🧊','🥄','🍴','🍽️','🥣',
+            '🥡','🥢','🧂','⚽','🏀','🏈','⚾','🥎',
+            '🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸',
+            '🏒','🏑','🥍','🏏','🪃','🥅','⛳','🪁',
+            '🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼',
+            '🛷','⛸️','🥌','🎿','⛷️','🏂','🪂','🏋️',
+            '🤼','🤸','⛹️','🤺','🤾','🏌️','🏇','🧘',
+            '🏄','🏊','🤽','🚣','🧗','🚵','🚴','🏆',
+            '🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️','🎫',
+            '🎟️','🎪','🤹','🎭','🩰','🎨','🎬','🎤',
+            '🎧','🎼','🎹','🥁','🪘','🎷','🎺','🪗',
+            '🎸','🪕','🎻','🎲','♟️','🎯','🎳','🎮',
+            '🎰','🧩','🚗','🚕','🚙','🚌','🚎','🏎️',
+            '🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜',
+            '🛵','🏍️','🛺','🚲','🛴','🚨','🚔','🚍',
+            '🚘','🚖','🚡','🚠','🚟','🚃','🚋','🚞',
+            '🚝','🚄','🚅','🚈','🚂','🚆','🚇','🚊',
+            '🚉','✈️','🛫','🛬','🛩️','💺','🛰️','🚀',
+            '🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️',
+            '🚢','⚓','🪝','⛽','🚧','🚦','🚥','🚏',
+            '🗺️','🗿','🗽','🗼','🏰','🏯','🏟️','🎡',
+            '🎢','🎠','⛲','⛱️','🏖️','🏝️','🏜️','🌋',
+            '⛰️','🏔️','🗻','🏕️','⛺','🏠','🏡','🏘️',
+            '🏚️','🏗️','🏭','🏢','🏬','🏣','🏤','🏥',
+            '🏦','🏨','🏪','🏫','🏩','💒','🏛️','⛪',
+            '🕌','🕍','🛕','🕋','⛩️','🛤️','🛣️','🗾',
+            '🎑','🏞️','🌅','🌄','🌠','🎇','🎆','🌇',
+            '🌆','🏙️','🌃','🌌','🌉','🌁','⌚','📱',
+            '📲','💻','⌨️','🖥️','🖨️','🖱️','🖲️','🕹️',
+            '🗜️','💽','💾','💿','📀','📼','📷','📸',
+            '📹','🎥','📽️','🎞️','📞','☎️','📟','📠',
+            '📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️',
+            '⏰','🕰️','⌛','⏳','📡','🔋','🔌','💡',
+            '🔦','🕯️','🪔','🧯','🛢️','💸','💵','💴',
+            '💶','💷','🪙','💰','💳','💎','⚖️','🪜',
+            '🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚',
+            '🔩','⚙️','🪤','🧱','⛓️','🧲','🔫','💣',
+            '🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️',
+            '🪦','⚱️','🏺','🔮','📿','🧿','💈','⚗️',
+            '🔭','🔬','🕳️','🩹','🩺','💊','💉','🩸',
+            '🧬','🦠','🧫','🧪','🌡️','🧹','🪠','🧺',
+            '🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪥',
+            '🪒','🧽','🪣','🧴','🛎️','🔑','🗝️','🚪',
+            '🪑','🛋️','🛏️','🛌','🧸','🪆','🖼️','🪞',
+            '🪟','🛍️','🛒','🎁','🎈','🎏','🎀','🪄',
+            '🪅','🎊','🎉','🎎','🏮','🎐','🧧','✉️',
+            '📩','📨','📧','💌','📥','📤','📦','🏷️',
+            '🪧','📪','📫','📬','📭','📮','📯','📜',
+            '📃','📄','📑','🧾','📊','📈','📉','🗒️',
+            '🗓️','📆','📅','🗑️','📇','🗃️','🗳️','🗄️',
+            '📋','📁','📂','🗂️','🗞️','📰','📓','📔',
+            '📒','📕','📗','📘','📙','📚','📖','🔖',
+            '🧷','🔗','📎','🖇️','📐','📏','🧮','📌',
+            '📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝',
+            '✏️','🔍','🔎','🔏','🔐','🔒','🔓'
+        ];
+
+        // Генерируем сетку смайлов
+        exclusiveEmojis.forEach(emoji => {
+            const span = document.createElement('span');
+            span.className = 'emoji-item';
+            span.textContent = emoji;
+            span.onclick = () => insertEmoji(emoji);
+            emojiGrid.appendChild(span);
         });
 
-        connection.on("UpdateUsers", (users) => {
-            const list = document.getElementById('usersList');
-            const colors = ['#10b981', '#8b5cf6', '#f97316', '#3b82f6', '#a855f7', '#ec4899'];
-            list.innerHTML = users.map((u, i) => `
-                <div class="user-item">
-                    <div class="user-avatar" style="background: linear-gradient(135deg, ${colors[i % colors.length]}, ${colors[(i+1) % colors.length]})">${u.charAt(1).toUpperCase()}</div>
-                    <div class="user-info">
-                        <div class="user-name">${u}</div>
-                        <div class="user-status">Онлайн</div>
-                    </div>
-                </div>
-            `).join('');
-            document.getElementById('userCount').textContent = users.length;
-        });
-
-        async function joinChat() {
-            let nick = document.getElementById('nicknameInput').value.trim();
-            let pass = document.getElementById('passwordInput').value.trim();
-            if (!nick || !pass) { alert("Введите ник и пароль!"); return; }
-            if (!nick.startsWith('#')) nick = '#' + nick;
-            currentNickname = nick;
+        // Функция вставки смайла точно в место курсора
+        function insertEmoji(emoji) {
+            const start = messageInput.selectionStart;
+            const end = messageInput.selectionEnd;
+            const text = messageInput.value;
             
-            try {
-                await connection.start();
-                const result = await connection.invoke("RegisterOrLogin", nick, pass);
-                localStorage.setItem('familyChatToken', result.sessionToken || result.SessionToken);
-                const savedNick = result.nickname || result.Nickname;
-                localStorage.setItem('familyChatNickname', savedNick.startsWith('#') ? savedNick : '#' + savedNick);
-                
-                document.getElementById('currentAvatar').textContent = nick.charAt(1).toUpperCase();
-                loginSuccess = true;
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'flex';
-            } catch (err) { alert("Ошибка входа: " + err); }
+            messageInput.value = text.substring(0, start) + emoji + text.substring(end);
+            messageInput.focus();
+            messageInput.selectionStart = messageInput.selectionEnd = start + emoji.length;
+            
+            emojiPicker.style.display = 'none';
         }
 
-        async function sendMessage() {
-            if (!loginSuccess) return;
-            const input = document.getElementById('messageInput');
-            const text = input.value.trim();
-            if (text) {
-                await connection.invoke("SendMessage", text, "", "");
-                input.value = '';
+        // Открытие/закрытие пикера по кнопке
+        emojiBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (emojiPicker.style.display === 'flex') {
+                emojiPicker.style.display = 'none';
+            } else {
+                emojiPicker.style.display = 'flex';
             }
-        }
+        });
 
-        function hardReset() {
-            localStorage.clear();
-            location.reload();
-        }
-
-        window.addEventListener('load', async () => {
-            const nick = localStorage.getItem('familyChatNickname');
-            const token = localStorage.getItem('familyChatToken');
-            if (nick && token) {
-                currentNickname = nick;
-                try {
-                    await connection.start();
-                    await connection.invoke("JoinByToken", nick, token);
-                    document.getElementById('currentAvatar').textContent = nick.charAt(1).toUpperCase();
-                    loginSuccess = true;
-                    document.getElementById('loginScreen').style.display = 'none';
-                    document.getElementById('mainContent').style.display = 'flex';
-                } catch (err) { localStorage.clear(); }
+        // Закрытие пикера при клике в любом другом месте экрана
+        document.addEventListener('click', (e) => {
+            if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                emojiPicker.style.display = 'none';
             }
         });
-    </script>
+    })();
+</script>
+
 </body>
 </html>

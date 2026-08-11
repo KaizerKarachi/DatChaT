@@ -1,0 +1,335 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html,
+body{
+    height:100%;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+
+body{
+    background:#24322a;
+    color:#fff;
+}
+
+/* ---------- LOGIN ---------- */
+
+.login-screen{
+    width:100%;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:
+        radial-gradient(circle at top,#55744b 0%,#2b332d 70%);
+}
+
+.login-card{
+
+    width:420px;
+
+    background:#ffffff;
+
+    color:#222;
+
+    border-radius:22px;
+
+    padding:40px;
+
+    box-shadow:0 30px 60px rgba(0,0,0,.35);
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:18px;
+}
+
+.login-card h1{
+
+    font-size:42px;
+
+    text-align:center;
+
+    color:#355e3b;
+}
+
+.subtitle{
+
+    text-align:center;
+
+    color:#777;
+
+    margin-bottom:10px;
+}
+
+.login-card input{
+
+    height:52px;
+
+    border-radius:12px;
+
+    border:1px solid #d8d8d8;
+
+    padding:0 16px;
+
+    font-size:16px;
+}
+
+.login-card button{
+
+    height:52px;
+
+    border:none;
+
+    border-radius:12px;
+
+    cursor:pointer;
+
+    font-size:17px;
+
+    background:#4d6d46;
+
+    color:white;
+}
+
+/* ---------- APP ---------- */
+
+.hidden{
+
+    display:none !important;
+}
+
+.app{
+
+    width:100%;
+
+    height:100vh;
+
+    display:grid;
+
+    grid-template-columns:320px 1fr;
+
+    overflow:hidden;
+}
+
+/* ---------- SIDEBAR ---------- */
+
+.sidebar{
+
+    background:#314235;
+
+    display:flex;
+
+    flex-direction:column;
+
+    border-right:1px solid rgba(255,255,255,.08);
+}
+
+.sidebar-header{
+
+    height:88px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    padding:20px;
+}
+
+.logo{
+
+    font-size:28px;
+
+    font-weight:700;
+}
+
+.online{
+
+    margin-top:6px;
+
+    color:#b7d7b3;
+
+    font-size:14px;
+}
+
+.header-btn{
+
+    background:#4f7049;
+
+    color:white;
+
+    border:none;
+
+    border-radius:10px;
+
+    padding:10px 16px;
+
+    cursor:pointer;
+}
+
+.users-list{
+
+    flex:1;
+
+    overflow:auto;
+
+    padding:12px;
+}
+
+/* ---------- CHAT ---------- */
+
+.chat{
+
+    display:grid;
+
+    grid-template-rows:80px auto 1fr 82px;
+
+    background:#ece8df;
+}
+
+.chat-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:0 28px;
+
+    background:white;
+
+    border-bottom:1px solid #ddd;
+}
+
+.chat-title{
+
+    font-size:24px;
+
+    color:#2e2e2e;
+
+    font-weight:700;
+}
+
+.chat-status{
+
+    color:#6f8a4b;
+
+    margin-top:4px;
+
+    font-size:14px;
+}
+
+.header-actions{
+
+    display:flex;
+
+    gap:10px;
+}
+
+.header-actions button{
+
+    width:42px;
+
+    height:42px;
+
+    border:none;
+
+    border-radius:50%;
+
+    cursor:pointer;
+
+    background:#f2f2f2;
+
+    font-size:18px;
+}
+
+/* ---------- PIN ---------- */
+
+.pinned{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    padding:14px 24px;
+
+    background:#fff7d8;
+
+    color:#6d5200;
+
+    border-bottom:1px solid #edd79c;
+}
+
+/* ---------- MESSAGES ---------- */
+
+.messages{
+
+    overflow:auto;
+
+    padding:30px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:18px;
+}
+
+/* ---------- COMPOSER ---------- */
+
+.composer{
+
+    background:white;
+
+    border-top:1px solid #ddd;
+
+    display:grid;
+
+    grid-template-columns:55px 1fr 55px 70px;
+
+    gap:12px;
+
+    padding:14px 20px;
+}
+
+.composer button{
+
+    border:none;
+
+    border-radius:12px;
+
+    cursor:pointer;
+
+    font-size:20px;
+
+    background:#edf0ec;
+}
+
+#sendBtn{
+
+    background:#4f7049;
+
+    color:white;
+}
+
+#messageInput{
+
+    border:1px solid #ccc;
+
+    border-radius:12px;
+
+    padding:0 16px;
+
+    font-size:16px;
+
+    outline:none;
+}
