@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using FamilyChat.Interfaces;
@@ -15,13 +13,8 @@ public class ChatHub : Hub
     private readonly IMessageService _messageService;
     private readonly ILogger<ChatHub> _logger;
 
-    public ChatHub(IChatService chatService, IUserService userService, IMessageService messageService, ILogger<ChatHub> logger)
-    {
-        _chatService = chatService;
-        _userService = userService;
-        _messageService = messageService;
-        _logger = logger;
-    }
+    public ChatHub(IChatService chatService, IUserService userService, IMessageService messageService, ILogger<ChatHub> logger) =>
+        (_chatService, _userService, _messageService, _logger) = (chatService, userService, messageService, logger);
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
@@ -38,7 +31,13 @@ public class ChatHub : Hub
             await _userService.SetUserOnlineAsync(Context.ConnectionId, user.Nickname);
             await Clients.All.SendAsync("UpdateOnlineUsers", await _userService.GetOnlineUsersAsync());
 
-            return new Dictionary<string, object> { ["success"] = true, ["nickname"] = user.Nickname, ["sessionToken"] = user.SessionToken!, ["isAdmin"] = user.IsAdmin };
+            return new Dictionary<string, object> 
+            { 
+                ["success"] = true, 
+                ["nickname"] = user.Nickname, 
+                ["sessionToken"] = user.SessionToken!, 
+                ["isAdmin"] = user.IsAdmin 
+            };
         }
         catch (Exception ex)
         {
@@ -60,17 +59,26 @@ public class ChatHub : Hub
             await Clients.Caller.SendAsync("LoadHistory", history);
             if (pinned?.Message != null)
             {
-                await Clients.Caller.SendAsync("PinnedMessage", new {
-                    Id = pinned.MessageId, Nickname = pinned.Message.User, Text = pinned.Message.Text,
-                    FileUrl = pinned.Message.FileUrl, FileType = pinned.Message.FileType,
-                    Time = pinned.Message.Timestamp.ToString("HH:mm"), IsAdmin = user.IsAdmin,
-                    IsDeleted = pinned.Message.IsDeleted, PinnedBy = pinned.PinnedBy,
+                await Clients.Caller.SendAsync("PinnedMessage", new
+                {
+                    Id = pinned.MessageId,
+                    Nickname = pinned.Message.User,
+                    Text = pinned.Message.Text,
+                    FileUrl = pinned.Message.FileUrl,
+                    FileType = pinned.Message.FileType,
+                    Time = pinned.Message.Timestamp.ToString("HH:mm"),
+                    IsAdmin = user.IsAdmin,
+                    IsDeleted = pinned.Message.IsDeleted,
+                    PinnedBy = pinned.PinnedBy,
                     PinnedAt = pinned.PinnedAt.ToString("HH:mm dd.MM.yyyy")
                 });
             }
             await Clients.All.SendAsync("UpdateOnlineUsers", await _userService.GetOnlineUsersAsync());
         }
-        catch (Exception ex) { await Clients.Caller.SendAsync("SystemMessage", $"Ошибка: {ex.Message}"); }
+        catch (Exception ex) 
+        { 
+            await Clients.Caller.SendAsync("SystemMessage", $"Ошибка: {ex.Message}"); 
+        }
     }
 
     public async Task SendMessage(string text, string? fileUrl = null, string? fileType = null)
@@ -79,10 +87,17 @@ public class ChatHub : Hub
         if (user == null) return;
 
         var message = await _chatService.SaveMessageAsync(user.Nickname, text, fileUrl, fileType);
-        await Clients.All.SendAsync("ReceiveMessage", new {
-            Id = message.Id, Nickname = message.User, Text = message.Text, FileUrl = message.FileUrl,
-            FileType = message.FileType, Time = message.Timestamp.ToString("HH:mm"),
-            IsAdmin = user.IsAdmin, IsDeleted = message.IsDeleted, IsPinned = message.IsPinned
+        await Clients.All.SendAsync("ReceiveMessage", new
+        {
+            Id = message.Id,
+            Nickname = message.User,
+            Text = message.Text,
+            FileUrl = message.FileUrl,
+            FileType = message.FileType,
+            Time = message.Timestamp.ToString("HH:mm"),
+            IsAdmin = user.IsAdmin,
+            IsDeleted = message.IsDeleted,
+            IsPinned = message.IsPinned
         });
     }
 
@@ -95,9 +110,13 @@ public class ChatHub : Hub
         var pinned = await _chatService.GetLastPinnedAsync();
         if (pinned?.Message != null)
         {
-            await Clients.All.SendAsync("PinnedMessage", new {
-                Id = pinned.MessageId, Nickname = pinned.Message.User, Text = pinned.Message.Text,
-                PinnedBy = pinned.PinnedBy, PinnedAt = pinned.PinnedAt.ToString("HH:mm dd.MM.yyyy")
+            await Clients.All.SendAsync("PinnedMessage", new
+            {
+                Id = pinned.MessageId,
+                Nickname = pinned.Message.User,
+                Text = pinned.Message.Text,
+                PinnedBy = pinned.PinnedBy,
+                PinnedAt = pinned.PinnedAt.ToString("HH:mm dd.MM.yyyy")
             });
         }
     }

@@ -1,8 +1,12 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FamilyChat.Models;
 
+[Index(nameof(MessageId))]
+[Index(nameof(PinnedBy))]
+[Index(nameof(PinnedAt))]
 public class PinnedMessage
 {
     [Key]

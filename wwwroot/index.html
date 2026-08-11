@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DatChaT</title>
+    <link rel="stylesheet" href="elegant-style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <style>
+<<<<<<< HEAD
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
         body {
@@ -375,10 +377,40 @@
         }
         
         .main { display: none; }
+=======
+        *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,sans-serif}
+        body{background:linear-gradient(180deg,#87CEEB,#7BC67E);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:10px}
+        .container{width:100%;max-width:800px;height:90vh;background:rgba(255,255,255,.95);border-radius:28px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 15px 45px rgba(0,0,0,.18)}
+        .header{padding:15px 20px;background:linear-gradient(135deg,#4d79ff,#7b5cff);color:#fff;display:flex;justify-content:space-between;align-items:center}
+        .login-screen{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;padding:20px}
+        .login-screen input{padding:12px 16px;width:260px;border-radius:10px;border:1px solid #ddd;outline:none;transition:.2s}
+        .login-screen input:focus{border-color:#5B7CFA;box-shadow:0 0 0 3px rgba(91,124,250,.2)}
+        .login-screen button{padding:12px 32px;background:linear-gradient(135deg,#5b7cfa,#7a5af8);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;transition:.2s}
+        .login-screen button:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(91,124,250,.3)}
+        .main{flex:1;display:none;flex-direction:column}
+        .messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+        .message{max-width:80%;padding:12px 16px;border-radius:18px;animation:msgAppear .25s ease;word-wrap:break-word;transition:.15s}
+        .message:hover{transform:translateY(-1px)}
+        .message.left{align-self:flex-start;background:#e6f4fa}
+        .message.right{align-self:flex-end;background:linear-gradient(135deg,#5b7cfa,#7a5af8);color:#fff}
+        .message .user{font-size:11px;opacity:.7;margin-bottom:5px;font-weight:600}
+        .message img{max-width:100%;border-radius:10px;margin-top:6px;cursor:pointer}
+        .message a{color:inherit;text-decoration:underline}
+        .input-area{padding:15px;display:flex;gap:10px;background:rgba(255,255,255,.9);border-top:1px solid #eee}
+        .message-input{flex:1;padding:12px 18px;border-radius:24px;border:1px solid #ddd;outline:none;font-size:15px;transition:.2s}
+        .message-input:focus{border-color:#5B7CFA;box-shadow:0 0 0 3px rgba(91,124,250,.2)}
+        .btn{width:46px;height:46px;border-radius:50%;border:none;cursor:pointer;font-size:18px;transition:.15s;display:flex;align-items:center;justify-content:center}
+        .btn:hover{transform:scale(1.08)}.btn:active{transform:scale(.94)}
+        .send-btn{background:linear-gradient(135deg,#5b7cfa,#7a5af8);color:#fff}
+        .attach-btn{background:#f0f0f0;color:#444}
+        @keyframes msgAppear{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+        ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#7aa65a;border-radius:20px}::-webkit-scrollbar-track{background:transparent}
+>>>>>>> 2b23de78e4af3db199c5b668a06dc7bcf0121495
     </style>
 </head>
 <body>
     <div class="container">
+<<<<<<< HEAD
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
@@ -431,11 +463,31 @@
                     <button class="icon-btn">🎤</button>
                     <button class="send-btn" onclick="sendMessage()">➤</button>
                 </div>
+=======
+        <div class="header">
+            <img src="/images/logo.svg" alt="DatChaT" style="height:32px;width:auto">
+            <button onclick="app.hardReset()" style="background:none;border:1px solid #fff;color:#fff;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px">🔄 Сброс</button>
+        </div>
+        <div class="login-screen" id="loginScreen">
+            <h2 style="color:#333;margin-bottom:8px">Вход в DatChaT</h2>
+            <input type="text" id="nicknameInput" placeholder="#твой ник" autocomplete="username">
+            <input type="password" id="passwordInput" placeholder="Пароль" autocomplete="current-password">
+            <button onclick="app.joinChat()">Войти</button>
+        </div>
+        <div class="main" id="mainContent">
+            <div class="messages" id="messages"></div>
+            <div class="input-area">
+                <button class="btn attach-btn" onclick="document.getElementById('fileInput').click()">📎</button>
+                <input type="file" id="fileInput" style="display:none" onchange="app.uploadFile(this.files[0])">
+                <input type="text" class="message-input" id="messageInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter')app.sendMessage()">
+                <button class="btn send-btn" onclick="app.sendMessage()">➤</button>
+>>>>>>> 2b23de78e4af3db199c5b668a06dc7bcf0121495
             </div>
         </div>
     </div>
     
     <script>
+<<<<<<< HEAD
         const connection = new signalR.HubConnectionBuilder().withUrl("/chat").withAutomaticReconnect().build();
         let loginSuccess = false;
         let currentNickname = '';
@@ -524,6 +576,60 @@
                 } catch (err) { localStorage.clear(); }
             }
         });
+=======
+const app={
+    conn:null,logged:false,nick:'',
+    init(){
+        this.conn=new signalR.HubConnectionBuilder().withUrl("/chat").withAutomaticReconnect().build();
+        this.conn.on("ReceiveMessage",m=>this.renderMsg(m));
+        this.loadSession();
+    },
+    renderMsg(m){
+        const name=m.nickname||m.Nickname||m.User||'?',txt=m.text||m.Text||'',url=m.fileUrl||m.FileUrl||'',type=m.fileType||m.FileType||'';
+        const isMe=name===this.nick,d=document.createElement('div');
+        d.className=`message ${isMe?'right':'left'}`;
+        let h=`<div class="user">${name}</div>`;
+        if(url) h+=type==='image'?`<img src="${url}" onclick="window.open(this.src)">`:`<a href="${url}" target="_blank">📎 ${txt||'Файл'}</a><br>`;
+        h+=`<div>${txt}</div>`;d.innerHTML=h;
+        const ms=document.getElementById('messages');ms.appendChild(d);ms.scrollTop=ms.scrollHeight;
+    },
+    async joinChat(){
+        const n=document.getElementById('nicknameInput').value.trim(),p=document.getElementById('passwordInput').value.trim();
+        if(!n||!p)return alert("Введите ник и пароль!");
+        this.nick=n.startsWith('#')?n:'#'+n;
+        try{
+            await this.conn.start();
+            const r=await this.conn.invoke("RegisterOrLogin",this.nick,p);
+            localStorage.setItem('familyChatToken',r.sessionToken||r.SessionToken);
+            const nk=r.nickname||r.Nickname;localStorage.setItem('familyChatNickname',nk.startsWith('#')?nk:'#'+nk);
+            this.logged=true;this.toggleView(true);
+        }catch(e){alert("Ошибка: "+e)}
+    },
+    async sendMessage(){
+        if(!this.logged)return;const i=document.getElementById('messageInput'),t=i.value.trim();
+        if(t){await this.conn.invoke("SendMessage",t,"","");i.value='';}
+    },
+    async uploadFile(f){
+        if(!f||!this.logged)return;const fd=new FormData();fd.append("file",f);
+        try{
+            const r=await fetch("/upload",{method:"POST",body:fd});
+            if(!r.ok)return alert("Ошибка загрузки");
+            const d=await r.json();
+            try{await this.conn.invoke("SendFile",f.name,d.fileUrl,d.fileType)}catch{await this.conn.invoke("SendMessage",f.name,d.fileUrl,d.fileType)}
+        }catch(e){console.error(e);alert("Не удалось загрузить")}
+    },
+    toggleView(show){
+        document.getElementById('loginScreen').style.display=show?'none':'flex';
+        document.getElementById('mainContent').style.display=show?'flex':'none';
+    },
+    hardReset(){localStorage.clear();location.reload()},
+    async loadSession(){
+        const n=localStorage.getItem('familyChatNickname'),t=localStorage.getItem('familyChatToken');
+        if(n&&t){this.nick=n;try{await this.conn.start();await this.conn.invoke("JoinByToken",n,t);this.logged=true;this.toggleView(true);}catch{localStorage.clear();}}
+    }
+};
+window.addEventListener('load',()=>app.init());
+>>>>>>> 2b23de78e4af3db199c5b668a06dc7bcf0121495
     </script>
 </body>
 </html>
