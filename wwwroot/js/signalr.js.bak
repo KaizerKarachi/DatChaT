@@ -1,0 +1,116 @@
+// ===============================
+// DatChaT v2
+// signalr.js
+// ===============================
+
+window.connection = new signalR.HubConnectionBuilder()
+    .withUrl("/chat")
+    .withAutomaticReconnect()
+    .build();
+
+connection.onreconnecting(() => {
+    console.log("Переподключение...");
+});
+
+connection.onreconnected(() => {
+    console.log("Соединение восстановлено");
+
+    if (window.sessionToken) {
+        loginByToken();
+    }
+});
+
+connection.onclose(() => {
+    console.log("Соединение закрыто");
+});
+
+// --------------------
+// История сообщений
+// --------------------
+
+connection.on("LoadHistory", messages => {
+
+    clearMessages();
+
+    if (!messages) return;
+
+    messages.forEach(renderMessage);
+
+});
+
+// --------------------
+// Новое сообщение
+// --------------------
+
+connection.on("ReceiveMessage", message => {
+
+    renderMessage(message);
+
+});
+
+// --------------------
+// Пользователи
+// --------------------
+
+connection.on("UpdateOnlineUsers", users => {
+
+    renderUsers(users);
+
+});
+
+// --------------------
+// Закреп
+// --------------------
+
+connection.on("PinnedMessage", message => {
+
+    renderPinned(message);
+
+});
+
+connection.on("MessageUnpinned", () => {
+
+    clearPinned();
+
+});
+
+// --------------------
+// Удаление
+// --------------------
+
+connection.on("MessageDeleted", id => {
+
+    removeMessage(id);
+
+});
+
+// --------------------
+// Подключение
+// --------------------
+
+async function startConnection() {
+
+    try {
+
+        await connection.start();
+
+        console.log("SignalR подключён");
+
+        if (window.sessionToken) {
+
+            await loginByToken();
+
+        }
+
+    }
+    catch (e) {
+
+        console.error(e);
+
+        setTimeout(startConnection, 3000);
+
+    }
+
+}
+
+startConnection();
