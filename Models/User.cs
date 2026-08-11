@@ -1,7 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FamilyChat.Models;
 
+[Index(nameof(Nickname), IsUnique = true)]
+[Index(nameof(SessionToken))]
+[Index(nameof(IsApproved))]
+[Index(nameof(LastSeen))]
+[Index(nameof(IsOnline))]
 public class User
 {
     [Key]

@@ -3,7 +3,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>FamilyChat</RootNamespace>
+    <AssemblyName>FamilyChat</AssemblyName>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <Authors>DatChaT Team</Authors>
+    <Description>Modern self-hosted family messenger</Description>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
