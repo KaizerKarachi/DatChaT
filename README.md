@@ -79,10 +79,10 @@ dotnet ef database update
 ### 3. Запуск приложения
 
 ```bash
-dotnet run --urls "http://0.0.0.0:3060"
+dotnet run --urls "http://0.0.0.0:4020"
 ```
 
-Откройте браузер: `http://localhost:3060`
+Откройте браузер: `http://localhost:4020`
 
 ---
 
@@ -269,7 +269,7 @@ services:
   app:
     build: .
     ports:
-      - "3060:3060"
+      - "4020:4020"
     environment:
       - ConnectionStrings__DefaultConnection=Host=db;Database=familychat;Username=postgres;Password=secret
     depends_on:
