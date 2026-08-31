@@ -1,175 +1,117 @@
-// ===============================
-// DatChaT v2
-// ui.js
-// ===============================
-
-const chatScreen =
-    document.getElementById("app");
-
-const currentUserLabel = null;
-
-const onlineCountLabel =
-    document.getElementById("userCount");
-
-// ---------------------
-// Показать окно входа
-// ---------------------
+function field() {
+    return window.messageInput || document.getElementById("messageInput");
+}
 
 function showLogin() {
-
-    if (loginScreen)
-        loginScreen.classList.remove("hidden");
-
-    if (chatScreen)
-        chatScreen.classList.add("hidden");
-
+    document.getElementById("loginScreen")?.classList.remove("hidden");
+    document.getElementById("app")?.classList.add("hidden");
 }
-
-// ---------------------
-// Показать чат
-// ---------------------
 
 function showChat() {
-
-    if (loginScreen)
-        loginScreen.classList.add("hidden");
-
-    if (chatScreen)
-        chatScreen.classList.remove("hidden");
-
+    document.getElementById("loginScreen")?.classList.add("hidden");
+    document.getElementById("app")?.classList.remove("hidden");
 }
-
-// ---------------------
-// Имя пользователя
-// ---------------------
-
-function setCurrentUser(name) {
-
-    window.currentUser = name;
-
-    if (currentUserLabel)
-        currentUserLabel.textContent = name;
-
-}
-
-// ---------------------
-// Онлайн
-// ---------------------
-
-function setOnlineCount(count) {
-
-    if (onlineCountLabel)
-        onlineCountLabel.textContent = count;
-
-}
-
-// ---------------------
-// Toast
-// ---------------------
 
 function showToast(text) {
-
-    let toast =
-        document.getElementById("toast");
-
-    if (!toast) {
-
-        toast =
-            document.createElement("div");
-
-        toast.id = "toast";
-
-        toast.style.position = "fixed";
-        toast.style.right = "25px";
-        toast.style.bottom = "25px";
-        toast.style.background = "#355E3B";
-        toast.style.color = "#fff";
-        toast.style.padding = "12px 18px";
-        toast.style.borderRadius = "12px";
-        toast.style.boxShadow =
-            "0 10px 25px rgba(0,0,0,.25)";
-        toast.style.zIndex = "9999";
-
-        document.body.appendChild(toast);
-
-    }
-
+    const toast = document.getElementById("toast");
+    if (!toast) return;
     toast.textContent = text;
-
-    toast.style.opacity = "1";
-
+    toast.classList.remove("hidden");
     clearTimeout(window.toastTimer);
-
-    window.toastTimer =
-        setTimeout(() => {
-
-            toast.style.opacity = "0";
-
-        }, 2500);
-
+    window.toastTimer = setTimeout(() => toast.classList.add("hidden"), 2500);
 }
 
-// ---------------------
-// Выход
-// ---------------------
-
-function logout() {
-
-    localStorage.removeItem("sessionToken");
-
-    window.sessionToken = null;
-
-    window.currentUser = null;
-
-    clearMessages();
-
-    clearUsers();
-
-    clearPinned();
-
-    showLogin();
-
+function fillEmojiPicker() {
+    const picker = document.getElementById("emojiPicker");
+    if (!picker) return;
+    picker.replaceChildren();
+    ["😀","😁","😂","🤣","😊","😍","😘","😎","🤔","😴","😭","😡","👍","👎","❤️","🔥","🎉","✨","🙏","👏","💪","✅","📌","📎","🍕","🥧","☕","🏠","💚","💙"].forEach(ch => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = ch;
+        btn.addEventListener("click", e => {
+            e.stopPropagation();
+            const input = field();
+            if (!input) return;
+            input.value += ch;
+            input.focus();
+        });
+        picker.appendChild(btn);
+    });
 }
 
-// ---------------------
-// Кнопка выхода
-// ---------------------
-
-document
-.getElementById("logoutBtn")
-?.addEventListener(
-    "click",
-    logout
-);
-
-// ---------------------
-// Начальный экран
-// ---------------------
-
-if (window.sessionToken)
-    showChat();
-else
-    showLogin();
-
-
-/* ==================================================
-   DatChaT — Theme
-   ================================================== */
-
-function toggleTheme() {
-    document.body.classList.toggle("dark-theme");
-
-    const dark =
-        document.body.classList.contains("dark-theme");
-
-    localStorage.setItem(
-        "theme",
-        dark ? "dark" : "light"
-    );
-
-    const btn = document.getElementById("themeBtn");
-
-    if (btn) {
-        btn.textContent = dark ? "☀️" : "🌙";
-    }
+function toggleEmojiPicker(e) {
+    e?.preventDefault();
+    e?.stopPropagation();
+    const picker = document.getElementById("emojiPicker");
+    if (!picker) return;
+    picker.classList.toggle("hidden");
 }
+
+function renderSearchResults(results) {
+    const box = document.getElementById("searchResults");
+    if (!box) return;
+    box.replaceChildren();
+    (results || []).forEach(msg => {
+        const item = document.createElement("div");
+        item.className = "search-hit";
+        item.textContent = displayName(pick(msg, "nickname")) + ": " + (pick(msg, "text") || "");
+        item.addEventListener("click", () => {
+            document.getElementById("searchModal")?.classList.add("hidden");
+            document.getElementById("msg-" + pick(msg, "id"))?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        box.appendChild(item);
+    });
+    if (!results?.length) box.textContent = "Ничего не найдено";
+}
+
+function bindUi() {
+    fillEmojiPicker();
+    document.getElementById("loginForm")?.addEventListener("submit", login);
+    document.getElementById("settingsBtn")?.addEventListener("click", logout);
+    document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
+    document.getElementById("emojiBtn")?.addEventListener("click", toggleEmojiPicker);
+    document.getElementById("fileInput")?.addEventListener("change", e => {
+        const file = e.target.files?.[0];
+        if (file) uploadAndSend(file);
+        e.target.value = "";
+    });
+    document.getElementById("menuBtn")?.addEventListener("click", () => {
+        document.getElementById("sidebar")?.classList.toggle("open");
+    });
+    document.getElementById("searchBtn")?.addEventListener("click", () => {
+        document.getElementById("searchModal")?.classList.remove("hidden");
+        document.getElementById("searchInput")?.focus();
+    });
+    document.getElementById("closeSearch")?.addEventListener("click", () => {
+        document.getElementById("searchModal")?.classList.add("hidden");
+    });
+    document.getElementById("forgotBtn")?.addEventListener("click", () => {
+        showToast("Сброс пароля пока не нужен: войдите своим ником");
+    });
+
+    let searchTimer;
+    document.getElementById("searchInput")?.addEventListener("input", e => {
+        clearTimeout(searchTimer);
+        const q = e.target.value.trim();
+        if (q.length < 2) return;
+        searchTimer = setTimeout(() => window.connection?.invoke("SearchMessages", q), 250);
+    });
+
+    field()?.addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    document.addEventListener("click", e => {
+        if (e.target.closest("#emojiPicker") || e.target.closest("#emojiBtn")) return;
+        document.getElementById("emojiPicker")?.classList.add("hidden");
+    });
+}
+
+window.showToast = showToast;
+window.showLogin = showLogin;
+window.showChat = showChat;
+window.renderSearchResults = renderSearchResults;

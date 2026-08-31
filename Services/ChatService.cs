@@ -18,6 +18,7 @@ public class ChatService : IChatService
     public async Task<List<ChatMessage>> GetRecentMessagesAsync(int count = 100)
     {
         var messages = await _db.Messages.AsNoTracking()
+            .Where(x => !x.IsDeleted)
             .OrderByDescending(x => x.Timestamp).Take(count).ToListAsync();
         messages.Reverse();
         return messages;

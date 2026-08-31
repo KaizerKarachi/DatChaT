@@ -1,10 +1,34 @@
-console.log("signalr.js: загрузка");
+function pick(obj, ...keys) {
+    if (obj == null) return undefined;
+    for (const key of keys) {
+        if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+        const found = Object.keys(obj).find(k => k.toLowerCase() === String(key).toLowerCase());
+        if (found && obj[found] !== undefined) return obj[found];
+    }
+    return undefined;
+}
+
+function displayName(nickname) {
+    if (!nickname) return "";
+    return String(nickname).startsWith("#") ? String(nickname).slice(1) : String(nickname);
+}
+
+function sameUser(a, b) {
+    return displayName(a).toLowerCase() === displayName(b).toLowerCase();
+}
+
+window.DatChat = window.DatChat || {
+    currentUser: null,
+    isAdmin: false,
+    activeChat: "family",
+    unread: {}
+};
 
 let connection = null;
 
 function createConnection() {
     if (typeof signalR === "undefined") {
-        console.error("SignalR library НЕ загружена");
+        console.error("Библиотека SignalR не загружена");
         return false;
     }
 
@@ -15,123 +39,73 @@ function createConnection() {
 
     window.connection = connection;
 
-    connection.onreconnecting(() => {
-        console.log("SignalR: переподключение...");
-    });
-
-    connection.onreconnected(() => {
-        console.log("SignalR: соединение восстановлено");
-    });
-
-    connection.onclose(() => {
-        console.log("SignalR: соединение закрыто");
+    connection.onreconnecting(() => showToast?.("Переподключение..."));
+    connection.onreconnected(async () => {
+        const nickname = localStorage.getItem("nickname");
+        const token = localStorage.getItem("sessionToken");
+        if (nickname && token) {
+            try { await connection.invoke("JoinByToken", nickname, token); } catch (e) { console.warn(e); }
+        }
+        showToast?.("Соединение восстановлено");
     });
 
     connection.on("LoadHistory", messages => {
-        if (typeof clearMessages === "function")
-            clearMessages();
+        if (window.DatChat.activeChat !== "family") return;
+        clearMessages();
+        (messages || []).forEach(renderMessage);
+    });
 
-        if (messages && typeof renderMessage === "function")
-            messages.forEach(renderMessage);
+    connection.on("LoadPrivateHistory", messages => {
+        if (window.DatChat.activeChat === "family") return;
+        clearMessages();
+        (messages || []).forEach(msg => renderPrivateMessage(msg));
     });
 
     connection.on("ReceiveMessage", message => {
-        if (typeof renderMessage === "function")
-            renderMessage(message);
+        if (window.DatChat.activeChat === "family") renderMessage(message);
     });
 
-    connection.on("UpdateUsers", users => {
-        if (typeof renderUsers === "function")
-            renderUsers(users);
-    });
-
-    connection.on("UpdateOnlineUsers", users => {
-        if (typeof renderUsers === "function")
-            renderUsers(users);
-    });
-
-    connection.on("PinnedMessage", message => {
-        if (typeof renderPinned === "function")
-            renderPinned(message);
-    });
-
-    connection.on("MessageUnpinned", () => {
-        if (typeof clearPinned === "function")
-            clearPinned();
-    });
-
-    connection.on("MessageDeleted", message => {
-        if (typeof removeMessage === "function") {
-            const id = message?.Id ?? message?.id ?? message;
-            removeMessage(id);
+    connection.on("ReceivePrivateMessage", message => {
+        const sender = pick(message, "sender");
+        const receiver = pick(message, "receiver");
+        const other = sameUser(sender, window.DatChat.currentUser) ? receiver : sender;
+        if (window.DatChat.activeChat !== "family" && sameUser(window.DatChat.activeChat, other)) {
+            renderPrivateMessage(message);
+            return;
+        }
+        if (!sameUser(sender, window.DatChat.currentUser)) {
+            const key = displayName(sender);
+            window.DatChat.unread[key] = (window.DatChat.unread[key] || 0) + 1;
+            if (typeof markUnread === "function") markUnread(key);
+            showToast?.("Личное сообщение от " + displayName(sender));
         }
     });
 
-    connection.on("LoginSuccess", data => {
-        console.log("SignalR: вход успешен", data);
-
-        if (data) {
-            window.currentUser = data.Nickname || window.currentUser;
-        window.isAdmin = !!data.IsAdmin;
-            window.sessionToken = data.SessionToken || window.sessionToken;
-
-            if (window.sessionToken)
-                localStorage.setItem("sessionToken", window.sessionToken);
-
-            if (typeof showChat === "function")
-                showChat();
-
-            const currentUser = document.getElementById("currentUser");
-            if (currentUser)
-                currentUser.textContent = window.currentUser || "";
-        }
-    });
-
-    connection.on("ForceLogout", message => {
-        console.warn("ForceLogout:", message);
-
-        localStorage.removeItem("sessionToken");
-        window.sessionToken = null;
-        window.currentUser = null;
-
-        if (typeof showLogin === "function")
-            showLogin();
-
-        alert(message || "Вы вошли с другого устройства");
-    });
+    connection.on("UpdateOnlineUsers", users => renderUsers?.(users));
+    connection.on("UpdateUsers", users => renderUsers?.(users));
+    connection.on("PinnedMessage", message => renderPinned?.(message));
+    connection.on("MessageUnpinned", () => clearPinned?.(true));
+    connection.on("MessageDeleted", id => removeMessage?.(id));
+    connection.on("SearchResults", results => renderSearchResults?.(results));
+    connection.on("SystemMessage", text => showToast?.(text));
 
     return true;
 }
 
 async function startConnection() {
-    if (!connection) {
-        if (!createConnection()) {
-            console.error("SignalR: не удалось создать соединение");
-            return;
-        }
-    }
-
+    if (!connection && !createConnection()) return;
     try {
-        if (connection.state === signalR.HubConnectionState.Connected) {
-            console.log("SignalR: уже подключён");
-            return;
-        }
-
-        console.log("SignalR: подключение к /chat...");
+        if (connection.state === signalR.HubConnectionState.Connected) return;
         await connection.start();
-        console.log("SignalR: ПОДКЛЮЧЁН");
-
+        if (typeof loginByToken === "function")
+            await loginByToken();
     } catch (e) {
         console.error("SignalR: ошибка подключения", e);
-
         setTimeout(startConnection, 3000);
     }
 }
 
 window.startConnection = startConnection;
-
-createConnection();
-
-window.addEventListener("DOMContentLoaded", () => {
-    startConnection();
-});
+window.pick = pick;
+window.displayName = displayName;
+window.sameUser = sameUser;

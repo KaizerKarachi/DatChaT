@@ -1,12 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FamilyChat.Models;
 
-[Index(nameof(Timestamp))]
-[Index(nameof(IsDeleted))]
-[Index(nameof(User))]
-[Index(nameof(IsPinned))]
 public class ChatMessage
 {
     [Key]

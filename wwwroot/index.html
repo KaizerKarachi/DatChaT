@@ -4,80 +4,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DatChaT</title>
-    <link rel="stylesheet" href="/css/layout.css">
-    <link rel="stylesheet" href="/css/theme.css">
-    <link rel="stylesheet" href="/css/chat.css">
-    <link rel="stylesheet" href="/css/responsive.css">
+    <meta name="theme-color" content="#0b2a1c">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
-    <style>
-        .emoji-picker {
-            position: fixed; bottom: 90px; right: 280px; width: 340px;
-            background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(15px);
-            border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 16px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7); display: none;
-            flex-direction: column; z-index: 1000;
-        }
-        .emoji-header { padding: 14px 18px; font-size: 13px; font-weight: 600; color: #4ade80; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-        .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; padding: 14px; max-height: 280px; overflow-y: auto; }
-        .emoji-item { font-size: 22px; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; user-select: none; }
-        .emoji-item:hover { background: rgba(74, 222, 128, 0.2); transform: scale(1.25); }
-    </style>
 </head>
 <body>
-<div id="loginScreen" class="login-screen">
-    <div class="login-card">
-        <h1>DatChaT</h1>
-        <p class="subtitle">Семейный мессенджер</p>
-        <input id="nicknameInput" type="text" placeholder="#никнейм" autocomplete="username">
-        <input id="passwordInput" type="password" placeholder="Пароль" autocomplete="current-password">
-        <button id="loginBtn">Войти</button>
-    </div>
-</div>
-<div id="app" class="app hidden">
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <div>
-                <div class="logo">DatChaT</div>
-                <div class="online">Онлайн: <span id="userCount">0</span></div>
-            </div>
-            <button id="logoutBtn" class="header-btn">Выход</button>
+<div id="loginScreen" class="login-page">
+    <p class="login-kicker">Premium Family Messenger</p>
+    <h1 class="brand-gold">DatChaT</h1>
+    <p class="login-sub">luxury family messenger</p>
+    <form id="loginForm" class="glass" autocomplete="on">
+        <label>
+            <span>Username</span>
+            <input id="nicknameInput" type="text" autocomplete="username" maxlength="30">
+        </label>
+        <label>
+            <span>Password</span>
+            <input id="passwordInput" type="password" autocomplete="current-password" maxlength="50">
+        </label>
+        <p id="loginError" class="login-error" hidden></p>
+        <div class="glass-row">
+            <button type="button" id="forgotBtn" class="text-link">Forgot Password?</button>
+            <button type="submit" id="loginBtn">Login</button>
         </div>
-        <div id="usersList" class="users-list"></div>
+    </form>
+    <p class="copy">© 2026 DatChaT</p>
+</div>
+
+<div id="app" class="app hidden">
+    <aside id="sidebar" class="sidebar">
+        <div class="side-brand">DatChaT</div>
+        <button type="button" class="nav-link active" id="familyChatBtn" data-chat="family">Family</button>
+        <nav id="usersList" class="nav-list"></nav>
+        <button type="button" id="settingsBtn" class="nav-link quiet">Выйти</button>
     </aside>
-    <main class="chat">
-        <header class="chat-header">
+
+    <main class="stage">
+        <header class="stage-head">
+            <button id="menuBtn" class="icon-btn" type="button" aria-label="Чаты">‹</button>
             <div>
-                <div class="chat-title">Семейный чат</div>
-                <div class="chat-status">SignalR</div>
+                <div class="brand-gold sm">DatChaT</div>
+                <div class="stage-sub" id="chatTitle">Family Chat</div>
             </div>
-            <div class="header-actions">
-                <button id="themeBtn"></button>
-                <button id="searchBtn">🔍</button>
-            </div>
+            <button id="searchBtn" class="icon-btn" type="button" aria-label="Поиск">⌕</button>
         </header>
-        <div id="pinnedContainer" class="pinned hidden">
-            <span>📌</span>
+        <div id="pinnedBar" class="pinned hidden">
             <span id="pinnedText"></span>
+            <button id="unpinBtn" type="button" class="text-link hidden">Открепить</button>
         </div>
         <section id="messages" class="messages"></section>
         <footer class="composer">
-            <button id="attachBtn">📎</button>
-            <input id="messageInput" placeholder="Введите сообщение...">
-            <button id="emojiBtn">😊</button>
-            <button id="sendBtn">➜</button>
+            <label class="round-btn" for="fileInput" title="Файл">📎</label>
+            <input id="fileInput" type="file" class="sr-only" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.xlsx,.heic">
+            <input id="messageInput" type="text" placeholder="Сообщение" maxlength="4000" autocomplete="off">
+            <div class="emoji-wrap">
+                <button id="emojiBtn" class="round-btn" type="button" title="Эмодзи">😊</button>
+                <div id="emojiPicker" class="emoji-picker hidden"></div>
+            </div>
+            <button id="sendBtn" type="button" aria-label="Отправить">➤</button>
         </footer>
     </main>
 </div>
-<div id="emojiPicker" class="emoji-picker">
-    <div class="emoji-header">Выберите смайл</div>
-    <div class="emoji-grid" id="emojiGrid"></div>
+<div id="searchModal" class="modal hidden">
+    <div class="modal-card">
+        <div class="modal-head">
+            <h3>Поиск</h3>
+            <button type="button" class="icon-btn" id="closeSearch">✕</button>
+        </div>
+        <input id="searchInput" type="search" placeholder="Найти в семейном чате">
+        <div id="searchResults" class="search-results"></div>
+    </div>
 </div>
-<script src="/js/signalr.js?v=5"></script>
+<div id="toast" class="toast hidden"></div>
+
+<script src="/js/signalr.js"></script>
 <script src="/js/auth.js"></script>
-<script src="/js/chat.js?v=3"></script>
+<script src="/js/chat.js"></script>
 <script src="/js/pinned.js"></script>
-<script src="/js/users.js?v=2"></script>
+<script src="/js/users.js"></script>
 <script src="/js/ui.js"></script>
-<script src="/js/app.js?v=2"></script>
+<script src="/js/app.js"></script>
 </body>
 </html>

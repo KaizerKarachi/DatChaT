@@ -1,14 +1,8 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FamilyChat.Models;
 
-[Index(nameof(SenderId))]
-[Index(nameof(ReceiverId))]
-[Index(nameof(Timestamp))]
-[Index(nameof(IsRead))]
-[Index(nameof(SenderId), nameof(ReceiverId), nameof(Timestamp))]
 public class PrivateMessage
 {
     [Key]

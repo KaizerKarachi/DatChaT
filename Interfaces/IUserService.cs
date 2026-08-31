@@ -1,5 +1,8 @@
+using FamilyChat.DTO;
 using FamilyChat.Models;
+
 namespace FamilyChat.Interfaces;
+
 public interface IUserService
 {
     Task<User?> FindByConnectionIdAsync(string connectionId);
@@ -9,4 +12,5 @@ public interface IUserService
     Task SetUserOnlineAsync(string connectionId, string nickname);
     Task SetUserOfflineAsync(string connectionId);
     Task<List<string>> GetOnlineUsersAsync();
+    Task<List<UserListItemDto>> GetUsersAsync();
 }

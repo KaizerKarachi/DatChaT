@@ -1,151 +1,105 @@
-window.currentUser = null;
-window.sessionToken = localStorage.getItem("sessionToken") || null;
+async function login(event) {
+    event?.preventDefault();
 
-function waitForLoginSuccess(timeout = 5000) {
-    return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-            connection.off("LoginSuccess", handler);
-            reject(new Error("Сервер не подтвердил вход"));
-        }, timeout);
-
-        function handler(data) {
-            clearTimeout(timer);
-            connection.off("LoginSuccess", handler);
-            resolve(data);
-        }
-
-        connection.on("LoginSuccess", handler);
-    });
-}
-
-async function login() {
-    const nicknameInput = document.getElementById("nicknameInput");
-    const passwordInput = document.getElementById("passwordInput");
-
-    const nickname = nicknameInput.value.trim();
-    const password = passwordInput.value.trim();
+    const nickname = document.getElementById("nicknameInput")?.value.trim();
+    const password = document.getElementById("passwordInput")?.value.trim();
+    const errorEl = document.getElementById("loginError");
 
     if (!nickname || !password) {
-        alert("Введите ник и пароль");
+        showLoginError("Введите ник и пароль");
         return;
     }
 
     if (!connection || connection.state !== "Connected") {
-        alert("Соединение с сервером ещё не установлено");
+        showLoginError("Соединение с сервером ещё не установлено");
         return;
     }
 
     try {
-        const loginPromise = waitForLoginSuccess();
-
-        await connection.invoke(
-            "RegisterOrLogin",
-            nickname,
-            password
-        );
-
-        const data = await loginPromise;
-
-        window.currentUser = data.Nickname;
-        window.sessionToken = data.SessionToken;
-
-        localStorage.setItem("sessionToken", data.SessionToken);
-        localStorage.setItem("nickname", data.Nickname);
-
-        window.isAdmin = !!data.IsAdmin;
-
-        showChat();
-
-        const currentUser = document.getElementById("currentUser");
-        if (currentUser) {
-            currentUser.textContent = data.Nickname;
+        const data = await connection.invoke("RegisterOrLogin", nickname, password);
+        if (!pick(data, "success")) {
+            showLoginError(pick(data, "error") || "Ошибка входа");
+            return;
         }
-
+        applySession(data);
+        if (window.DatChat.lastUsers) renderUsers();
+        showChat();
         messageInput?.focus();
-
     } catch (e) {
         console.error("Ошибка входа:", e);
-        alert(e.message || "Ошибка подключения");
+        showLoginError(e.message || "Ошибка подключения");
     }
 }
 
 async function loginByToken() {
     const token = localStorage.getItem("sessionToken");
     const nickname = localStorage.getItem("nickname");
-
-    if (!token || !nickname)
-        return false;
-
-    if (!connection || connection.state !== "Connected")
+    if (!token || !nickname || !connection || connection.state !== "Connected")
         return false;
 
     try {
-        const loginPromise = waitForLoginSuccess();
-
-        await connection.invoke(
-            "JoinByToken",
-            nickname,
-            token
-        );
-
-        const data = await loginPromise;
-
-        window.currentUser = data.Nickname;
-        window.sessionToken = data.SessionToken || token;
-        window.isAdmin = !!data.IsAdmin;
-
-        localStorage.setItem("sessionToken", window.sessionToken);
-        localStorage.setItem("nickname", data.Nickname);
-
-        showChat();
-
-        const currentUser = document.getElementById("currentUser");
-        if (currentUser) {
-            currentUser.textContent = data.Nickname;
+        const data = await connection.invoke("JoinByToken", nickname, token);
+        if (!pick(data, "success")) {
+            clearSession();
+            showLogin();
+            return false;
         }
-
+        applySession(data);
+        if (window.DatChat.lastUsers) renderUsers();
+        showChat();
         return true;
-
     } catch (e) {
         console.warn("Автовход не выполнен:", e);
-
-        localStorage.removeItem("sessionToken");
-        localStorage.removeItem("nickname");
-
-        window.sessionToken = null;
-        window.currentUser = null;
-
+        clearSession();
+        showLogin();
         return false;
     }
 }
 
-function logout() {
-    localStorage.removeItem("sessionToken");
-    localStorage.removeItem("nickname");
+function applySession(data) {
+    window.DatChat.currentUser = pick(data, "nickname");
+    window.DatChat.isAdmin = !!pick(data, "isAdmin");
+    window.currentUser = window.DatChat.currentUser;
+    window.isAdmin = window.DatChat.isAdmin;
+    window.sessionToken = pick(data, "sessionToken");
 
-    window.sessionToken = null;
-    window.currentUser = null;
-    window.isAdmin = false;
+    localStorage.setItem("sessionToken", window.sessionToken);
+    localStorage.setItem("nickname", window.DatChat.currentUser);
 
-    if (typeof showLogin === "function") {
-        showLogin();
+    const errorEl = document.getElementById("loginError");
+    if (errorEl) {
+        errorEl.hidden = true;
+        errorEl.textContent = "";
     }
 }
 
-document.getElementById("loginBtn")?.addEventListener("click", login);
-
-document.getElementById("logoutBtn")?.addEventListener("click", logout);
-
-document.getElementById("nicknameInput")?.addEventListener("keydown", e => {
-    if (e.key === "Enter") {
-        e.preventDefault();
-        document.getElementById("passwordInput")?.focus();
+function showLoginError(text) {
+    const errorEl = document.getElementById("loginError");
+    if (!errorEl) {
+        alert(text);
+        return;
     }
-});
+    errorEl.hidden = false;
+    errorEl.textContent = text;
+}
 
-document.getElementById("passwordInput")?.addEventListener("keydown", e => {
-    if (e.key === "Enter") {
-        e.preventDefault();
-        login();
-    }
-});
+function clearSession() {
+    localStorage.removeItem("sessionToken");
+    localStorage.removeItem("nickname");
+    window.sessionToken = null;
+    window.currentUser = null;
+    window.isAdmin = false;
+    window.DatChat.currentUser = null;
+    window.DatChat.isAdmin = false;
+    window.DatChat.activeChat = "family";
+    window.DatChat.unread = {};
+}
+
+function logout() {
+    clearSession();
+    clearMessages?.();
+    clearUsers?.();
+    clearPinned?.();
+    showLogin();
+}
+

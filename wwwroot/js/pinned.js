@@ -1,86 +1,37 @@
-// ===============================
-// DatChaT v2
-// pinned.js
-// ===============================
-
-const pinnedContainer =
-    document.getElementById("pinnedText");
-
-// ---------------------
-// Показать закреп
-// ---------------------
+const pinnedBar = document.getElementById("pinnedBar");
+const pinnedText = document.getElementById("pinnedText");
+const unpinBtn = document.getElementById("unpinBtn");
 
 function renderPinned(msg) {
-
-    if (!pinnedContainer)
-        return;
-
+    if (!pinnedBar || !pinnedText) return;
     if (!msg) {
-
-        clearPinned();
-
+        clearPinned(true);
         return;
-
     }
 
-    const nickname =
-        msg.nickname ||
-        msg.Nickname ||
-        "";
-
-    const text =
-        msg.text ||
-        msg.Text ||
-        "";
-
-    pinnedContainer.innerHTML = `
-
-        <div class="pinned-card">
-
-            <div class="pinned-title">
-
-                📌 Закреплённое сообщение
-
-            </div>
-
-            <div class="pinned-author">
-
-                ${nickname}
-
-            </div>
-
-            <div class="pinned-text">
-
-                ${text}
-
-            </div>
-
-        </div>
-
-    `;
-
+    window.DatChat.lastPinned = msg;
+    const nickname = displayName(pick(msg, "nickname"));
+    const text = pick(msg, "text") || "";
+    pinnedText.textContent = (nickname ? nickname + ": " : "") + text;
+    pinnedBar.classList.remove("hidden");
+    if (unpinBtn)
+        unpinBtn.classList.toggle("hidden", !window.DatChat.isAdmin);
 }
 
-// ---------------------
-// Очистить закреп
-// ---------------------
-
-function clearPinned() {
-
-    if (!pinnedContainer)
-        return;
-
-    pinnedContainer.innerHTML = `
-
-        <div class="pinned-empty">
-
-            📌 Нет закреплённого сообщения
-
-        </div>
-
-    `;
-
+function hidePinned() {
+    pinnedBar?.classList.add("hidden");
 }
 
-// При старте сразу показываем заглушку
-clearPinned();
+function clearPinned(forget) {
+    if (pinnedText) pinnedText.textContent = "";
+    pinnedBar?.classList.add("hidden");
+    if (forget) window.DatChat.lastPinned = null;
+}
+
+unpinBtn?.addEventListener("click", async () => {
+    try {
+        await window.connection.invoke("UnpinMessage");
+    } catch {
+        showToast?.("Не удалось открепить");
+    }
+});
