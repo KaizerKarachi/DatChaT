@@ -2,13 +2,9 @@ namespace FamilyChat.Constants;
 
 public static class AppConstants
 {
-    public const int RateLimitSeconds = 2;
-
     public const int HistoryLimit = 100;
-
-    public const int MaxMessageLength = 1000;
-
-    public const int LongPressMilliseconds = 600;
-
-    public const string SystemUser = "Система";
+    public const int MaxMessageLength = 4000;
+    public const int MaxNicknameLength = 30;
+    public const int MinPasswordLength = 6;
+    public const int MaxPasswordLength = 50;
 }

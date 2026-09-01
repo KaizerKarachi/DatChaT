@@ -31,17 +31,24 @@ try
     builder.Services.AddScoped<IChatService, ChatService>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IMessageService, MessageService>();
+    builder.Services.AddScoped<ITdApiService, TdApiService>();
+    var keepAlive = builder.Configuration.GetValue("SignalR:KeepAliveIntervalSeconds", 15);
+    var clientTimeout = builder.Configuration.GetValue("SignalR:ClientTimeoutSeconds", 30);
+    var maxMessageKb = builder.Configuration.GetValue("SignalR:MaxMessageSizeKB", 64);
+    var maxUploadMb = builder.Configuration.GetValue("FileUpload:MaxSizeMB", 10);
+
     builder.Services.AddSignalR(options =>
     {
-        options.EnableDetailedErrors = true;
-        options.MaximumReceiveMessageSize = 64 * 1024;
-        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
-        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+        options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+        options.MaximumReceiveMessageSize = maxMessageKb * 1024L;
+        options.KeepAliveInterval = TimeSpan.FromSeconds(keepAlive);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(clientTimeout);
     });
     builder.Services.Configure<FormOptions>(options =>
     {
-        options.MultipartBodyLengthLimit = 12L * 1024 * 1024;
-        options.ValueLengthLimit = 12 * 1024 * 1024;
+        var uploadBytes = maxUploadMb * 1024L * 1024L;
+        options.MultipartBodyLengthLimit = uploadBytes;
+        options.ValueLengthLimit = (int)Math.Min(uploadBytes, int.MaxValue);
     });
 
     var app = builder.Build();
@@ -52,12 +59,30 @@ try
         db.Database.EnsureCreated();
         db.Database.ExecuteSqlRaw("""ALTER TABLE "PrivateMessages" ADD COLUMN IF NOT EXISTS "FileUrl" text;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "PrivateMessages" ADD COLUMN IF NOT EXISTS "FileType" text;""");
-        db.Users.ExecuteUpdate(s => s
-            .SetProperty(u => u.IsOnline, false)
-            .SetProperty(u => u.ConnectionId, (string?)null));
+        db.Database.ExecuteSqlRaw("""
+            CREATE TABLE IF NOT EXISTS "ChatInboxes" (
+                "Id" serial PRIMARY KEY,
+                "UserNickname" text NOT NULL,
+                "ChatId" text NOT NULL,
+                "UnreadCount" integer NOT NULL
+            );
+            """);
+        db.Database.ExecuteSqlRaw("""
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_ChatInboxes_UserNickname_ChatId"
+            ON "ChatInboxes" ("UserNickname", "ChatId");
+            """);
+        scope.ServiceProvider.GetRequiredService<IUserService>()
+            .ResetStalePresenceAsync().GetAwaiter().GetResult();
     }
 
     app.UseMiddleware<GlobalExceptionHandler>();
+    app.Use(async (context, next) =>
+    {
+        context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["Referrer-Policy"] = "same-origin";
+        await next();
+    });
     app.UseDefaultFiles();
     app.UseStaticFiles(new StaticFileOptions
     {
@@ -65,7 +90,11 @@ try
         {
             var name = ctx.File.Name;
             if (name.EndsWith(".js") || name.EndsWith(".css") || name.EndsWith(".html"))
-                ctx.Context.Response.Headers.CacheControl = "no-cache, no-store";
+            {
+                ctx.Context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+                ctx.Context.Response.Headers.Pragma = "no-cache";
+                ctx.Context.Response.Headers.Expires = "0";
+            }
         }
     });
 
@@ -102,8 +131,16 @@ try
             return Results.BadRequest("Этот тип файла не поддерживается");
 
         var safeName = Path.GetFileName(file.FileName);
+        if (string.IsNullOrWhiteSpace(safeName))
+            return Results.BadRequest("Некорректное имя файла");
         var fileName = $"{Guid.NewGuid()}_{safeName}";
-        var filePath = Path.Combine(uploadsPath, fileName);
+        var root = Path.GetFullPath(uploadsPath);
+        if (!root.EndsWith(Path.DirectorySeparatorChar))
+            root += Path.DirectorySeparatorChar;
+        var filePath = Path.GetFullPath(Path.Combine(uploadsPath, fileName));
+        var pathCompare = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (!filePath.StartsWith(root, pathCompare))
+            return Results.BadRequest("Некорректный путь");
         await using (var stream = new FileStream(filePath, FileMode.Create))
             await file.CopyToAsync(stream);
 

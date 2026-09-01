@@ -1,5 +1,3 @@
-using System.Linq;
-using System.Threading.Tasks;
 using FamilyChat.Data;
 using FamilyChat.Interfaces;
 using FamilyChat.Models;
@@ -31,7 +29,7 @@ public class MessageService : IMessageService
         _db.PrivateMessages.Add(pm);
         await _db.SaveChangesAsync();
         
-        _logger.LogInformation("📩 [PM] Личное сообщение от {Sender} к {Receiver}", senderId, receiverId);
+        _logger.LogInformation("Личное сообщение от {Sender} к {Receiver}", senderId, receiverId);
         return pm;
     }
 

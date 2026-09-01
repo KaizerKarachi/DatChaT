@@ -8,5 +8,13 @@
   "background_color": "#0b2a1c",
   "theme_color": "#0b2a1c",
   "orientation": "any",
-  "lang": "ru"
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/images/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ]
 }

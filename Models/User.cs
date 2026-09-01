@@ -12,8 +12,7 @@ public class User
     
     [Required]
     public string PasswordHash { get; set; } = "";
-    
-    // Токен сессии для автоматического входа
+
     public string? SessionToken { get; set; }
     
     public bool IsApproved { get; set; } = false;

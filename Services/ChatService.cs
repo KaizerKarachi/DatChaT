@@ -1,3 +1,4 @@
+using FamilyChat.Constants;
 using FamilyChat.Data;
 using FamilyChat.Interfaces;
 using FamilyChat.Models;
@@ -8,14 +9,13 @@ namespace FamilyChat.Services;
 public class ChatService : IChatService
 {
     private readonly ChatDbContext _db;
-    private readonly ILogger<ChatService> _logger;
-    
-    public ChatService(ChatDbContext db, ILogger<ChatService> logger) => (_db, _logger) = (db, logger);
+
+    public ChatService(ChatDbContext db) => _db = db;
 
     public Task<ChatMessage?> FindMessageByIdAsync(int messageId) => 
         _db.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
 
-    public async Task<List<ChatMessage>> GetRecentMessagesAsync(int count = 100)
+    public async Task<List<ChatMessage>> GetRecentMessagesAsync(int count = AppConstants.HistoryLimit)
     {
         var messages = await _db.Messages.AsNoTracking()
             .Where(x => !x.IsDeleted)

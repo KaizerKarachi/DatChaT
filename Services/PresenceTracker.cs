@@ -2,10 +2,6 @@ using System.Collections.Concurrent;
 
 namespace FamilyChat.Services;
 
-/// <summary>
-/// Живые соединения SignalR — источник правды «кто онлайн».
-/// Флаг в БД после рестарта сервера часто врёт.
-/// </summary>
 public sealed class PresenceTracker
 {
     private readonly ConcurrentDictionary<string, string> _nickByConnection = new(StringComparer.Ordinal);

@@ -16,7 +16,7 @@ async function login(event) {
     }
 
     try {
-        const data = await connection.invoke("RegisterOrLogin", nickname, password);
+        const data = await window.connection.invoke("RegisterOrLogin", nickname, password);
         if (!pick(data, "success")) {
             showLoginError(pick(data, "error") || "Ошибка входа");
             return;
@@ -26,7 +26,7 @@ async function login(event) {
         showChat();
         if (pick(data, "isNew"))
             showToast?.("Аккаунт создан. Пароль сохранён в виде хеша.");
-        document.getElementById("messageInput")?.focus();
+        focusComposer?.();
     } catch (e) {
         console.error("Ошибка входа:", e);
         showLoginError(e.message || "Ошибка подключения");
@@ -40,7 +40,7 @@ async function loginByToken() {
         return false;
 
     try {
-        const data = await connection.invoke("JoinByToken", nickname, token);
+        const data = await window.connection.invoke("JoinByToken", nickname, token);
         if (!pick(data, "success")) {
             clearSession();
             showLogin();
@@ -61,12 +61,11 @@ async function loginByToken() {
 function applySession(data) {
     window.DatChat.currentUser = pick(data, "nickname");
     window.DatChat.isAdmin = !!pick(data, "isAdmin");
-    window.currentUser = window.DatChat.currentUser;
-    window.isAdmin = window.DatChat.isAdmin;
     window.sessionToken = pick(data, "sessionToken");
 
     localStorage.setItem("sessionToken", window.sessionToken);
     localStorage.setItem("nickname", window.DatChat.currentUser);
+    updateMeChip?.();
 
     const errorEl = document.getElementById("loginError");
     if (errorEl) {
@@ -89,12 +88,13 @@ function clearSession() {
     localStorage.removeItem("sessionToken");
     localStorage.removeItem("nickname");
     window.sessionToken = null;
-    window.currentUser = null;
-    window.isAdmin = false;
     window.DatChat.currentUser = null;
     window.DatChat.isAdmin = false;
-    window.DatChat.activeChat = "family";
+    window.DatChat.activeChat = null;
     window.DatChat.unread = {};
+    window.DatChat.previews = {};
+    window.DatChat.quote = null;
+    document.title = "DatChaT";
 }
 
 async function logout() {

@@ -1,4 +1,3 @@
-using FamilyChat.Constants;
 using FamilyChat.DTO;
 using FamilyChat.Interfaces;
 using FamilyChat.Models;
@@ -13,20 +12,20 @@ public class ChatHub : Hub
 
     private readonly IChatService _chatService;
     private readonly IUserService _userService;
-    private readonly IMessageService _messageService;
+    private readonly ITdApiService _td;
     private readonly PresenceTracker _presence;
     private readonly ILogger<ChatHub> _logger;
 
     public ChatHub(
         IChatService chatService,
         IUserService userService,
-        IMessageService messageService,
+        ITdApiService td,
         PresenceTracker presence,
         ILogger<ChatHub> logger)
     {
         _chatService = chatService;
         _userService = userService;
-        _messageService = messageService;
+        _td = td;
         _presence = presence;
         _logger = logger;
     }
@@ -34,7 +33,7 @@ public class ChatHub : Hub
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         await _userService.SetUserOfflineAsync(Context.ConnectionId);
-        await Clients.All.SendAsync("UpdateOnlineUsers", await _userService.GetUsersAsync());
+        await BroadcastDirectory();
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -42,7 +41,7 @@ public class ChatHub : Hub
     {
         await _userService.InvalidateSessionAsync(Context.ConnectionId);
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, FamilyGroup);
-        await Clients.All.SendAsync("UpdateOnlineUsers", await _userService.GetUsersAsync());
+        await BroadcastDirectory();
     }
 
     public async Task<LoginResultDto> RegisterOrLogin(string nickname, string password)
@@ -75,26 +74,73 @@ public class ChatHub : Hub
         }
     }
 
-    public async Task SendMessage(string text)
+    public async Task<List<TdChatDto>> GetChats()
     {
         var user = await RequireUserAsync();
-        var check = InputValidator.ValidateMessage(text);
-        if (!check.ok)
-            throw new HubException(check.error);
-
-        var message = await _chatService.SaveMessageAsync(user.Nickname, text);
-        await Clients.Group(FamilyGroup).SendAsync("ReceiveMessage", MapMessage(message, user.IsAdmin));
+        return await _td.GetChatsAsync(user);
     }
 
-    public async Task SendFile(string text, string fileUrl, string fileType)
+    public async Task GetChatHistory(string chatId)
+    {
+        var user = await TryUserAsync();
+        if (user == null) return;
+        var history = await _td.GetChatHistoryAsync(user, chatId);
+        await Clients.Caller.SendAsync("updateChatHistory", history);
+    }
+
+    public async Task ViewMessages(string chatId)
+    {
+        var user = await TryUserAsync();
+        if (user == null) return;
+        await _td.ViewMessagesAsync(user, chatId);
+        await Clients.Caller.SendAsync("updateChatReadInbox", new { chatId, unreadCount = 0 });
+    }
+
+    public async Task SendChatMessage(string chatId, string text)
     {
         var user = await RequireUserAsync();
-        if (string.IsNullOrWhiteSpace(fileUrl))
-            throw new HubException("Нет файла");
-
-        var message = await _chatService.SaveMessageAsync(user.Nickname, text ?? "", fileUrl, fileType);
-        await Clients.Group(FamilyGroup).SendAsync("ReceiveMessage", MapMessage(message, user.IsAdmin));
+        var message = await _td.SendTextAsync(user, chatId, text);
+        await _td.IncrementUnreadAsync(chatId, user.Nickname);
+        await BroadcastNewMessage(chatId, message);
     }
+
+    public async Task SendChatFile(string chatId, string text, string fileUrl, string fileType)
+    {
+        var user = await RequireUserAsync();
+        var message = await _td.SendFileAsync(user, chatId, text, fileUrl, fileType);
+        await _td.IncrementUnreadAsync(chatId, user.Nickname);
+        await BroadcastNewMessage(chatId, message);
+    }
+
+    public async Task SetChatAction(string chatId, string action)
+    {
+        var user = await RequireUserAsync();
+        var payload = new { chatId, userId = user.Nickname, action };
+        if (ChatIds.IsFamily(chatId))
+            await Clients.OthersInGroup(FamilyGroup).SendAsync("updateChatAction", payload);
+        else
+        {
+            var peer = ChatIds.PeerNickname(chatId);
+            if (!string.IsNullOrEmpty(peer))
+                await Clients.Group(PresenceTracker.UserGroup(peer)).SendAsync("updateChatAction", payload);
+        }
+    }
+
+    public Task SendMessage(string text) => SendChatMessage(ChatIds.Family, text);
+
+    public Task SendFile(string text, string fileUrl, string fileType) =>
+        SendChatFile(ChatIds.Family, text, fileUrl, fileType);
+
+    public Task SendPrivateMessage(string receiverNickname, string text) =>
+        SendChatMessage(ChatIds.Private(UserService.NormalizeNickname(receiverNickname)), text);
+
+    public Task SendPrivateFile(string receiverNickname, string text, string fileUrl, string fileType) =>
+        SendChatFile(ChatIds.Private(UserService.NormalizeNickname(receiverNickname)), text, fileUrl, fileType);
+
+    public Task LoadPrivateHistory(string otherNickname) =>
+        GetChatHistory(ChatIds.Private(UserService.NormalizeNickname(otherNickname)));
+
+    public Task LoadFamilyHistory() => GetChatHistory(ChatIds.Family);
 
     public async Task PinMessage(int messageId)
     {
@@ -123,6 +169,7 @@ public class ChatHub : Hub
         if (msg != null && (msg.User == user.Nickname || user.IsAdmin))
         {
             await _chatService.MarkDeletedAsync(messageId);
+            await Clients.Group(FamilyGroup).SendAsync("updateDeleteMessages", new { chatId = ChatIds.Family, messageIds = new[] { "f-" + messageId } });
             await Clients.Group(FamilyGroup).SendAsync("MessageDeleted", messageId);
         }
     }
@@ -132,88 +179,70 @@ public class ChatHub : Hub
         await RequireUserAsync();
         if (string.IsNullOrWhiteSpace(query) || query.Length < 2) return;
         var results = await _chatService.SearchMessagesAsync(query, 50);
-        await Clients.Caller.SendAsync("SearchResults", results.Select(m => MapMessage(m)).ToList());
+        await Clients.Caller.SendAsync("SearchResults", results.Select(MapMessage).ToList());
     }
 
-    public async Task SendPrivateMessage(string receiverNickname, string text)
+    private async Task BroadcastNewMessage(string chatId, TdMessageDto message)
     {
-        var sender = await RequireUserAsync();
-        var receiver = await _userService.FindByNicknameAsync(receiverNickname)
-            ?? throw new HubException("Пользователь не найден");
+        var envelope = new { chatId, message };
+        await Clients.Caller.SendAsync("updateNewMessage", envelope);
+        await Clients.Caller.SendAsync("updateChatLastMessage", new { chatId, lastMessage = message });
 
-        var check = InputValidator.ValidateMessage(text);
-        if (!check.ok) throw new HubException(check.error);
+        if (ChatIds.IsFamily(chatId))
+        {
+            await Clients.OthersInGroup(FamilyGroup).SendAsync("updateNewMessage", envelope);
+            await Clients.OthersInGroup(FamilyGroup).SendAsync("updateChatLastMessage", new { chatId, lastMessage = message });
+            return;
+        }
 
-        var saved = await _messageService.SavePrivateMessageAsync(sender.Nickname, receiver.Nickname, text);
-        var payload = MapPrivate(saved);
-        await Clients.Group(PresenceTracker.UserGroup(receiver.Nickname)).SendAsync("ReceivePrivateMessage", payload);
-        await Clients.Caller.SendAsync("ReceivePrivateMessage", payload);
+        var peer = ChatIds.PeerNickname(chatId);
+        if (string.IsNullOrEmpty(peer)) return;
+
+        var peerChatId = ChatIds.Private(message.SenderId);
+        await Clients.Group(PresenceTracker.UserGroup(peer)).SendAsync("updateNewMessage", new { chatId = peerChatId, message });
+        await Clients.Group(PresenceTracker.UserGroup(peer)).SendAsync("updateChatLastMessage", new { chatId = peerChatId, lastMessage = message });
     }
 
-    public async Task SendPrivateFile(string receiverNickname, string text, string fileUrl, string fileType)
+    private async Task BroadcastDirectory()
     {
-        var sender = await RequireUserAsync();
-        var receiver = await _userService.FindByNicknameAsync(receiverNickname)
-            ?? throw new HubException("Пользователь не найден");
-
-        if (string.IsNullOrWhiteSpace(fileUrl))
-            throw new HubException("Нет файла");
-
-        var saved = await _messageService.SavePrivateMessageAsync(sender.Nickname, receiver.Nickname, text ?? "", fileUrl, fileType);
-        var payload = MapPrivate(saved);
-        await Clients.Group(PresenceTracker.UserGroup(receiver.Nickname)).SendAsync("ReceivePrivateMessage", payload);
-        await Clients.Caller.SendAsync("ReceivePrivateMessage", payload);
-    }
-
-    public async Task LoadPrivateHistory(string otherNickname)
-    {
-        var me = await RequireUserAsync();
-        var other = await _userService.FindByNicknameAsync(otherNickname);
-        if (other == null) return;
-
-        var history = await _messageService.GetPrivateMessagesAsync(me.Nickname, other.Nickname);
-        await Clients.Caller.SendAsync("LoadPrivateHistory", history.Select(m => MapPrivate(m)).ToList());
-    }
-
-    public async Task LoadFamilyHistory()
-    {
-        await RequireUserAsync();
-        var history = await _chatService.GetRecentMessagesAsync(AppConstants.HistoryLimit);
-        await Clients.Caller.SendAsync("LoadHistory", history.Select(m => MapMessage(m)).ToList());
+        var users = await _userService.GetUsersAsync();
+        await Clients.All.SendAsync("updateUsers", users);
+        await Clients.All.SendAsync("UpdateOnlineUsers", users);
     }
 
     private async Task CompleteLoginAsync(User user)
     {
         await _userService.SetUserOnlineAsync(Context.ConnectionId, user.Nickname);
-        _presence.Connect(Context.ConnectionId, user.Nickname);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, FamilyGroup);
         await Groups.AddToGroupAsync(Context.ConnectionId, PresenceTracker.UserGroup(user.Nickname));
 
-        var history = await _chatService.GetRecentMessagesAsync(AppConstants.HistoryLimit);
+        var chats = await _td.GetChatsAsync(user);
         var pinned = await _chatService.GetLastPinnedAsync();
-        var users = await _userService.GetUsersAsync();
 
-        await Clients.Caller.SendAsync("LoadHistory", history.Select(m => MapMessage(m)).ToList());
-
+        await Clients.Caller.SendAsync("updateAuthorizationState", new { type = "ready" });
+        await Clients.Caller.SendAsync("updateChats", chats);
         if (pinned?.Message != null)
             await Clients.Caller.SendAsync("PinnedMessage", MapPinned(pinned));
 
-        await Clients.All.SendAsync("UpdateOnlineUsers", users);
+        await BroadcastDirectory();
     }
 
-    private async Task<User> RequireUserAsync()
+    private async Task<User?> TryUserAsync()
     {
         var user = await _userService.FindByConnectionIdAsync(Context.ConnectionId);
         if (user != null) return user;
 
         var nick = _presence.NicknameOf(Context.ConnectionId);
-        if (!string.IsNullOrEmpty(nick))
-            user = await _userService.FindByNicknameAsync(nick);
+        if (string.IsNullOrEmpty(nick)) return null;
+        return await _userService.FindByNicknameAsync(nick);
+    }
 
+    private async Task<User> RequireUserAsync()
+    {
+        var user = await TryUserAsync();
         if (user == null)
             throw new HubException("Сначала войдите в чат");
-
         return user;
     }
 
@@ -226,7 +255,7 @@ public class ChatHub : Hub
         IsNew = isNew
     };
 
-    private static object MapMessage(ChatMessage message, bool isAdmin = false) => new
+    private static object MapMessage(ChatMessage message) => new
     {
         id = message.Id,
         nickname = message.User,
@@ -235,7 +264,6 @@ public class ChatHub : Hub
         fileType = message.FileType,
         time = message.Timestamp.ToString("HH:mm"),
         timestamp = message.Timestamp,
-        isAdmin,
         isDeleted = message.IsDeleted,
         isPinned = message.IsPinned
     };
@@ -251,17 +279,5 @@ public class ChatHub : Hub
         isDeleted = pinned.Message.IsDeleted,
         pinnedBy = pinned.PinnedBy,
         pinnedAt = pinned.PinnedAt.ToString("HH:mm dd.MM.yyyy")
-    };
-
-    private static object MapPrivate(PrivateMessage message) => new
-    {
-        id = message.Id,
-        sender = message.SenderId,
-        receiver = message.ReceiverId,
-        text = message.Text,
-        fileUrl = message.FileUrl,
-        fileType = message.FileType,
-        time = message.Timestamp.ToString("HH:mm"),
-        timestamp = message.Timestamp
     };
 }

@@ -1,16 +1,8 @@
 const messagesBox = document.getElementById("messages");
 const messageInput = document.getElementById("messageInput");
 window.messageInput = messageInput;
+const TOUCH_MENU_MS = 600;
 let lastDateKey = "";
-
-const AVATAR_COLORS = ["av-green", "av-purple", "av-orange", "av-blue", "av-pink", "av-teal"];
-
-function avatarClass(name) {
-    const str = displayName(name || "");
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 function clearMessages() {
     if (messagesBox) messagesBox.innerHTML = "";
@@ -20,14 +12,18 @@ function clearMessages() {
 function scrollBottom() {
     if (!messagesBox) return;
     messagesBox.scrollTop = messagesBox.scrollHeight;
+    updateScrollJump();
 }
 
-function formatMessageTime(value) {
-    if (!value) return "";
-    if (typeof value === "string" && /^\d{2}:\d{2}$/.test(value)) return value;
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return String(value);
-    return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+function isNearBottom() {
+    if (!messagesBox) return true;
+    return messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 96;
+}
+
+function lastMessageRow() {
+    if (!messagesBox) return null;
+    const rows = messagesBox.querySelectorAll(".message");
+    return rows.length ? rows[rows.length - 1] : null;
 }
 
 function dateKeyFromMessage(msg) {
@@ -58,6 +54,41 @@ function maybeDateChip(msg) {
     messagesBox.appendChild(chip);
 }
 
+function familyNumericId(id) {
+    const s = String(id ?? "");
+    if (s.startsWith("f-")) return Number(s.slice(2));
+    return Number(s);
+}
+
+function parseQuotedText(text) {
+    const raw = String(text || "");
+    const m = raw.match(/^«([^»]+)»: ([^\n]+)\n\n([\s\S]*)$/);
+    if (!m) return { quote: null, body: raw };
+    return { quote: { nick: m[1], text: m[2] }, body: m[3] };
+}
+
+function setQuote(nick, text) {
+    window.DatChat.quote = { nick: displayName(nick), text: String(text || "").replace(/\s+/g, " ").slice(0, 120) };
+    const bar = document.getElementById("quoteBar");
+    const qn = document.getElementById("quoteNick");
+    const qt = document.getElementById("quoteText");
+    if (qn) qn.textContent = window.DatChat.quote.nick;
+    if (qt) qt.textContent = window.DatChat.quote.text;
+    bar?.classList.remove("hidden");
+    focusComposer?.();
+}
+
+function clearQuote() {
+    window.DatChat.quote = null;
+    document.getElementById("quoteBar")?.classList.add("hidden");
+}
+
+function updateScrollJump() {
+    const btn = document.getElementById("scrollJump");
+    if (!btn || !messagesBox) return;
+    btn.classList.toggle("hidden", isNearBottom());
+}
+
 function closeMessageMenus() {
     document.querySelectorAll(".message-menu").forEach(menu => menu.remove());
 }
@@ -66,6 +97,18 @@ function createMessageMenu(div, id) {
     const menu = document.createElement("div");
     menu.className = "message-menu";
 
+    const replyBtn = document.createElement("button");
+    replyBtn.type = "button";
+    replyBtn.textContent = "↩ Ответить";
+    replyBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        const nick = div.dataset.nick || "";
+        const body = div.querySelector(".msg-text")?.innerText || "";
+        setQuote(nick, body);
+        closeMessageMenus();
+    });
+    menu.appendChild(replyBtn);
+
     if (window.DatChat.activeChat === "family" && window.DatChat.isAdmin) {
         const pinBtn = document.createElement("button");
         pinBtn.type = "button";
@@ -73,7 +116,7 @@ function createMessageMenu(div, id) {
         pinBtn.addEventListener("click", async e => {
             e.stopPropagation();
             try {
-                await window.connection.invoke("PinMessage", Number(id));
+                await window.connection.invoke("PinMessage", familyNumericId(id));
                 closeMessageMenus();
             } catch {
                 showToast?.("Не удалось закрепить сообщение");
@@ -89,7 +132,7 @@ function createMessageMenu(div, id) {
         e.stopPropagation();
         try {
             if (window.DatChat.activeChat === "family")
-                await window.connection.invoke("DeleteMessage", Number(id));
+                await window.connection.invoke("DeleteMessage", familyNumericId(id));
             else
                 div.remove();
             closeMessageMenus();
@@ -113,7 +156,7 @@ function attachMenu(div, id) {
         pressTimer = setTimeout(() => {
             closeMessageMenus();
             createMessageMenu(div, id);
-        }, 600);
+        }, TOUCH_MENU_MS);
     }, { passive: true });
     div.addEventListener("touchend", () => clearTimeout(pressTimer));
     div.addEventListener("touchmove", () => clearTimeout(pressTimer));
@@ -162,11 +205,18 @@ function buildBubble(msg, nickname, text, mine) {
     const body = document.createElement("div");
     body.className = "msg-text";
 
+    const parsed = pick(msg, "isDeleted") ? { quote: null, body: "" } : parseQuotedText(text);
     if (pick(msg, "isDeleted")) {
         body.textContent = "Сообщение удалено";
         body.classList.add("deleted-message");
     } else {
-        appendFile(body, msg, text);
+        if (parsed.quote) {
+            const q = document.createElement("div");
+            q.className = "msg-quote";
+            q.textContent = parsed.quote.nick + ": " + parsed.quote.text;
+            body.appendChild(q);
+        }
+        appendFile(body, msg, parsed.body);
     }
 
     const meta = document.createElement("div");
@@ -197,13 +247,17 @@ function renderMessage(msg) {
 
     maybeDateChip(msg);
 
-    const nickname = pick(msg, "nickname", "user") || "";
+    const nickname = pick(msg, "nickname", "senderId", "user") || "";
     const text = pick(msg, "text") || "";
     const mine = sameUser(nickname, window.DatChat.currentUser);
 
     const row = document.createElement("div");
     row.className = mine ? "message mine" : "message";
     row.id = "msg-" + id;
+    row.dataset.nick = displayName(nickname);
+    const prev = lastMessageRow();
+    if (prev && sameUser(prev.dataset.nick, nickname))
+        row.classList.add("grouped");
 
     if (!mine) {
         const av = document.createElement("div");
@@ -214,8 +268,9 @@ function renderMessage(msg) {
 
     row.appendChild(buildBubble(msg, nickname, text, mine));
     attachMenu(row, id);
+    const stick = isNearBottom() || mine;
     messagesBox.appendChild(row);
-    scrollBottom();
+    if (stick) scrollBottom();
 }
 
 function renderPrivateMessage(msg) {
@@ -238,6 +293,10 @@ function renderPrivateMessage(msg) {
     const row = document.createElement("div");
     row.className = mine ? "message mine" : "message";
     row.id = "msg-" + id;
+    row.dataset.nick = displayName(sender);
+    const prev = lastMessageRow();
+    if (prev && sameUser(prev.dataset.nick, sender))
+        row.classList.add("grouped");
 
     if (!mine) {
         const av = document.createElement("div");
@@ -247,8 +306,9 @@ function renderPrivateMessage(msg) {
     }
 
     row.appendChild(buildBubble(mapped, sender, mapped.text, mine));
+    const stick = isNearBottom() || mine;
     messagesBox.appendChild(row);
-    scrollBottom();
+    if (stick) scrollBottom();
 }
 
 function removeMessage(id) {
@@ -280,18 +340,27 @@ async function sendMessage() {
     if (!messageInput) return;
     const text = messageInput.value.trim();
     if (!text) return;
+    if (!window.DatChat.activeChat) {
+        showToast?.("Сначала выберите чат");
+        return;
+    }
     if (!isHubConnected()) {
         showToast?.("Соединение с сервером не установлено");
         return;
     }
 
     try {
-        if (window.DatChat.activeChat === "family")
-            await window.connection.invoke("SendMessage", text);
-        else
-            await window.connection.invoke("SendPrivateMessage", window.DatChat.activeChat, text);
+        const chatId = activeChatId();
+        if (!chatId) return;
+        let payload = text;
+        if (window.DatChat.quote) {
+            payload = "«" + window.DatChat.quote.nick + "»: " + window.DatChat.quote.text + "\n\n" + text;
+            clearQuote();
+        }
+        await window.connection.invoke("SendChatMessage", chatId, payload);
         messageInput.value = "";
-        messageInput.focus();
+        autosizeComposer?.();
+        focusComposer?.();
     } catch (e) {
         console.error(e);
         showToast?.(e.message || "Не удалось отправить сообщение");
@@ -300,6 +369,10 @@ async function sendMessage() {
 
 async function uploadAndSend(file) {
     if (!file) return;
+    if (!window.DatChat.activeChat) {
+        showToast?.("Сначала выберите чат");
+        return;
+    }
     const form = new FormData();
     form.append("file", file);
     try {
@@ -314,10 +387,9 @@ async function uploadAndSend(file) {
             showToast?.("Нет соединения с сервером");
             return;
         }
-        if (window.DatChat.activeChat === "family")
-            await window.connection.invoke("SendFile", caption, data.fileUrl, data.fileType);
-        else
-            await window.connection.invoke("SendPrivateFile", window.DatChat.activeChat, caption, data.fileUrl, data.fileType);
+        const chatId = activeChatId();
+        if (!chatId) return;
+        await window.connection.invoke("SendChatFile", chatId, caption, data.fileUrl, data.fileType);
         if (window.messageInput) window.messageInput.value = "";
         showToast?.("Файл отправлен");
     } catch (e) {
@@ -329,3 +401,9 @@ async function uploadAndSend(file) {
 document.addEventListener("click", e => {
     if (!e.target.closest(".message-menu")) closeMessageMenus();
 });
+
+messagesBox?.addEventListener("scroll", updateScrollJump, { passive: true });
+
+window.clearQuote = clearQuote;
+window.setQuote = setQuote;
+window.updateScrollJump = updateScrollJump;

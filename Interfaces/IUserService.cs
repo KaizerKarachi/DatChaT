@@ -11,7 +11,6 @@ public interface IUserService
     Task<User> JoinByTokenAsync(string nickname, string sessionToken);
     Task SetUserOnlineAsync(string connectionId, string nickname);
     Task SetUserOfflineAsync(string connectionId);
-    Task<List<string>> GetOnlineUsersAsync();
     Task<List<UserListItemDto>> GetUsersAsync();
     Task ResetStalePresenceAsync();
     Task InvalidateSessionAsync(string connectionId);

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
 namespace FamilyChat.Middleware;
@@ -20,7 +19,7 @@ public class GlobalExceptionHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Необработанное исключение: {Path}", context.Request.Path);
+            _logger.LogError(ex, "Необработанное исключение: {Path}", context.Request.Path);
             
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             context.Response.ContentType = "application/json";

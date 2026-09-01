@@ -132,12 +132,6 @@ public class UserService : IUserService
             .SetProperty(u => u.ConnectionId, (string?)null));
     }
 
-    public async Task<List<string>> GetOnlineUsersAsync() =>
-        await _db.Users.AsNoTracking()
-            .Where(u => u.IsOnline)
-            .Select(u => u.Nickname)
-            .ToListAsync();
-
     public async Task<List<UserListItemDto>> GetUsersAsync()
     {
         var users = await _db.Users.AsNoTracking()

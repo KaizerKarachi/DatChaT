@@ -2,6 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>DatChaT</title>
     <meta name="theme-color" content="#0b2a1c">
@@ -10,80 +12,119 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="DatChaT">
     <link rel="apple-touch-icon" href="/images/logo.svg">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="color-scheme" content="dark">
     <link rel="manifest" href="/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/app.css?v=15">
+    <link rel="stylesheet" href="/css/app.css?v=24">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
 </head>
 <body>
 <div class="page-bg" aria-hidden="true">
     <div class="page-bg-green"></div>
-    <div class="page-bg-fire"></div>
-    <div class="page-bg-smoke"></div>
     <div class="page-bg-air"></div>
 </div>
 <div id="loginScreen" class="login-page">
-    <p class="login-kicker">Семейный мессенджер</p>
-    <h1 class="brand-gold">DatChaT</h1>
-    <form id="loginForm" class="glass" autocomplete="on">
+    <h1 class="sr-only">DatChaT</h1>
+    <form id="loginForm" class="login-card" autocomplete="on">
         <label>
             <span>Никнейм</span>
-            <input id="nicknameInput" type="text" autocomplete="username" maxlength="30" required>
+            <input id="nicknameInput" type="text" autocomplete="username" maxlength="30" required autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text">
         </label>
         <label>
             <span>Пароль</span>
-            <input id="passwordInput" type="password" autocomplete="new-password" maxlength="50" required minlength="6">
+            <input id="passwordInput" type="password" autocomplete="current-password" maxlength="50" required minlength="6" enterkeyhint="go">
         </label>
         <p id="loginError" class="login-error" hidden></p>
-        <button type="submit" id="loginBtn">Войти / создать аккаунт</button>
+        <button type="submit" id="loginBtn">Войти</button>
+        <p class="login-card-note">Новый ник — регистрация</p>
     </form>
-    <p class="copy">© 2026 DatChaT</p>
 </div>
 
-<div id="app" class="app hidden">
-    <aside id="sidebar" class="sidebar">
-        <div class="side-brand">DatChaT</div>
-        <button type="button" class="chat-item active" id="familyChatBtn" data-chat="family">
-            <div class="user-avatar av-green is-online">F</div>
-            <div class="chat-item-meta">
-                <div class="chat-item-name">Family</div>
-                <div class="chat-item-status">общий чат</div>
+<div id="app" class="app messenger hidden" data-nav-tab="conversations">
+    <section id="navigation" class="sidebar" aria-label="Чаты">
+        <header class="nav-top">
+            <div class="me-chip">
+                <div id="meAvatar" class="user-avatar av-green">D</div>
+                <div class="me-meta">
+                    <div class="side-brand">DatChaT</div>
+                    <div id="meName" class="me-name"></div>
+                    <div id="navConn" class="nav-conn">подключение…</div>
+                </div>
             </div>
-        </button>
-        <nav id="usersList" class="nav-list"></nav>
-        <button type="button" id="settingsBtn" class="nav-link quiet" onclick="logout()">Выйти</button>
-    </aside>
-    <button type="button" id="sidebarScrim" class="sidebar-scrim" hidden aria-label="Закрыть список чатов"></button>
-
-    <main class="stage">
-        <header class="stage-head">
-            <button id="menuBtn" class="icon-btn" type="button" aria-label="Чаты">‹</button>
-            <div>
-                <div class="brand-gold sm">DatChaT</div>
-                <div class="stage-sub" id="chatTitle">Family</div>
-                <div class="stage-status" id="chatStatus">общий чат</div>
-            </div>
-            <div class="head-actions">
-                <button id="searchBtn" class="icon-btn" type="button" title="Поиск" aria-label="Поиск">⌕</button>
-                <button id="logoutBtn" class="icon-btn" type="button" title="Выйти" aria-label="Выйти" onclick="logout()">Выйти</button>
+            <button type="button" id="navMenuBtn" class="icon-btn" aria-label="Меню" title="Меню">⋮</button>
+            <div id="navMenu" class="nav-menu hidden" role="menu">
+                <button type="button" role="menuitem" id="logoutMenuBtn">Выйти</button>
             </div>
         </header>
-        <div id="pinnedBar" class="pinned hidden">
-            <span id="pinnedText"></span>
-            <button id="unpinBtn" type="button" class="text-link hidden">Открепить</button>
+        <div class="nav-toolbar">
+            <div class="nav-tabs" role="tablist">
+                <button type="button" id="tabConversations" class="nav-tab active" role="tab" aria-selected="true">Чаты</button>
+                <button type="button" id="tabContacts" class="nav-tab" role="tab" aria-selected="false">Контакты</button>
+            </div>
+            <button type="button" id="toggleConvSearch" class="icon-btn" aria-label="Поиск чатов" title="Поиск">⌕</button>
         </div>
-        <section id="messages" class="messages"></section>
-        <footer class="composer">
-            <label class="round-btn file-btn" title="Файл">
-                📎
-                <input id="fileInput" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.xlsx,.heic,.csv">
-            </label>
-            <input id="messageInput" type="text" placeholder="Сообщение" maxlength="4000" autocomplete="off">
-            <button id="emojiBtn" class="round-btn" type="button" title="Эмодзи">😊</button>
-            <button id="sendBtn" type="button" aria-label="Отправить">➤</button>
-        </footer>
+        <div id="convSearchWrap" class="conv-search hidden">
+            <input id="convFilter" type="search" placeholder="Поиск чатов и контактов" autocomplete="off">
+        </div>
+        <button type="button" class="chat-item" id="familyChatBtn" data-chat="family" data-name="Family">
+            <div class="user-avatar av-green is-online">F</div>
+            <div class="chat-item-meta">
+                <div class="chat-item-row">
+                    <div class="chat-item-name">Family</div>
+                    <div id="familyTime" class="chat-item-time"></div>
+                </div>
+                <div id="familyPreview" class="chat-item-status">общий чат</div>
+            </div>
+            <span id="familyUnread" class="unread hidden">0</span>
+        </button>
+        <nav id="usersList" class="nav-list"></nav>
+    </section>
+
+    <main id="detail" class="conversation" role="main">
+        <div id="convIdle" class="conv-idle">
+            <div class="brand-gold sm">DatChaT</div>
+            <p>Выберите чат слева</p>
+        </div>
+        <div id="convWork" class="conv-work hidden">
+            <header class="stage-head">
+                <button id="menuBtn" class="icon-btn" type="button" aria-label="Назад">‹</button>
+                <div id="peerAvatar" class="user-avatar av-green header-avatar">F</div>
+                <div class="peer-head">
+                    <div class="stage-sub" id="chatTitle">Family</div>
+                    <div class="stage-status" id="chatStatus">общий чат</div>
+                </div>
+                <div class="head-actions">
+                    <button id="searchBtn" class="icon-btn" type="button" title="Поиск сообщений" aria-label="Поиск">⌕</button>
+                </div>
+            </header>
+            <div id="connBar" class="conn-bar hidden">Нет связи с сервером…</div>
+            <div id="pinnedBar" class="pinned hidden">
+                <span id="pinnedText"></span>
+                <button id="unpinBtn" type="button" class="text-link hidden">Открепить</button>
+            </div>
+            <section id="messages" class="messages"></section>
+            <button type="button" id="scrollJump" class="scroll-jump hidden" aria-label="Вниз" title="Вниз">↓</button>
+            <div id="quoteBar" class="quote-bar hidden">
+                <div class="quote-bar-body">
+                    <div id="quoteNick" class="quote-nick"></div>
+                    <div id="quoteText" class="quote-text"></div>
+                </div>
+                <button type="button" id="quoteCancel" class="icon-btn" aria-label="Отменить ответ">✕</button>
+            </div>
+            <div id="dropMask" class="drop-mask hidden">Отпустите файл, чтобы отправить</div>
+            <footer class="composer">
+                <label class="round-btn file-btn" title="Файл">
+                    📎
+                    <input id="fileInput" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.xlsx,.heic,.csv">
+                </label>
+                <textarea id="messageInput" rows="1" placeholder="Сообщение" maxlength="4000" autocomplete="off" enterkeyhint="send" autocapitalize="sentences"></textarea>
+                <button id="emojiBtn" class="round-btn" type="button" title="Эмодзи">😊</button>
+                <button id="sendBtn" type="button" aria-label="Отправить">➤</button>
+            </footer>
+        </div>
     </main>
 </div>
 <div id="searchModal" class="modal hidden">
@@ -96,15 +137,18 @@
         <div id="searchResults" class="search-results"></div>
     </div>
 </div>
-<div id="emojiPicker" class="emoji-picker" aria-hidden="true"></div>
+<div id="emojiPicker" class="emoji-picker" aria-hidden="true" role="dialog" aria-label="Эмодзи">
+    <div id="emojiCats" class="emoji-cats" role="tablist"></div>
+    <div id="emojiGrid" class="emoji-grid" role="tabpanel"></div>
+</div>
 <div id="toast" class="toast hidden"></div>
 
-<script src="/js/signalr.js?v=5"></script>
-<script src="/js/auth.js?v=5"></script>
-<script src="/js/chat.js?v=5"></script>
-<script src="/js/pinned.js?v=5"></script>
-<script src="/js/users.js?v=5"></script>
-<script src="/js/ui.js?v=5"></script>
-<script src="/js/app.js?v=5"></script>
+<script src="/js/signalr.js?v=24"></script>
+<script src="/js/auth.js?v=24"></script>
+<script src="/js/chat.js?v=24"></script>
+<script src="/js/pinned.js?v=24"></script>
+<script src="/js/users.js?v=24"></script>
+<script src="/js/ui.js?v=24"></script>
+<script src="/js/app.js?v=24"></script>
 </body>
 </html>
