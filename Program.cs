@@ -3,6 +3,7 @@ using FamilyChat.Hubs;
 using FamilyChat.Interfaces;
 using FamilyChat.Middleware;
 using FamilyChat.Services;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
@@ -26,13 +27,21 @@ try
         ?? "Host=localhost;Database=familychat;Username=postgres;Password=postgres";
 
     builder.Services.AddDbContext<ChatDbContext>(options => options.UseNpgsql(connectionString));
+    builder.Services.AddSingleton<PresenceTracker>();
     builder.Services.AddScoped<IChatService, ChatService>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IMessageService, MessageService>();
     builder.Services.AddSignalR(options =>
     {
-        options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-        options.MaximumReceiveMessageSize = 32 * 1024;
+        options.EnableDetailedErrors = true;
+        options.MaximumReceiveMessageSize = 64 * 1024;
+        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    });
+    builder.Services.Configure<FormOptions>(options =>
+    {
+        options.MultipartBodyLengthLimit = 12L * 1024 * 1024;
+        options.ValueLengthLimit = 12 * 1024 * 1024;
     });
 
     var app = builder.Build();
@@ -41,11 +50,24 @@ try
     {
         var db = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
         db.Database.EnsureCreated();
+        db.Database.ExecuteSqlRaw("""ALTER TABLE "PrivateMessages" ADD COLUMN IF NOT EXISTS "FileUrl" text;""");
+        db.Database.ExecuteSqlRaw("""ALTER TABLE "PrivateMessages" ADD COLUMN IF NOT EXISTS "FileType" text;""");
+        db.Users.ExecuteUpdate(s => s
+            .SetProperty(u => u.IsOnline, false)
+            .SetProperty(u => u.ConnectionId, (string?)null));
     }
 
     app.UseMiddleware<GlobalExceptionHandler>();
     app.UseDefaultFiles();
-    app.UseStaticFiles();
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        OnPrepareResponse = ctx =>
+        {
+            var name = ctx.File.Name;
+            if (name.EndsWith(".js") || name.EndsWith(".css") || name.EndsWith(".html"))
+                ctx.Context.Response.Headers.CacheControl = "no-cache, no-store";
+        }
+    });
 
     var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
     Directory.CreateDirectory(uploadsPath);
@@ -88,7 +110,7 @@ try
         var fileType = (file.ContentType ?? "").StartsWith("image/") ? "image" : "file";
         Log.Information("Загружен файл: {Name} ({Type}, {Size} байт)", file.FileName, fileType, file.Length);
         return Results.Json(new { fileName = safeName, fileUrl = $"/uploads/{fileName}", fileType });
-    });
+    }).DisableAntiforgery();
 
     _ = Task.Run(async () =>
     {
@@ -116,7 +138,9 @@ try
         }
     });
 
-    Log.Information("Сервер готов");
+    Log.Information("Запуск хоста...");
+    app.Lifetime.ApplicationStarted.Register(() =>
+        Log.Information("Сервер готов: {Urls}", string.Join(", ", app.Urls)));
     app.Run();
 }
 catch (Exception ex)

@@ -15,7 +15,7 @@ public class MessageService : IMessageService
 
     public MessageService(ChatDbContext db, ILogger<MessageService> logger) => (_db, _logger) = (db, logger);
 
-    public async Task<PrivateMessage> SavePrivateMessageAsync(string senderId, string receiverId, string text)
+    public async Task<PrivateMessage> SavePrivateMessageAsync(string senderId, string receiverId, string text, string? fileUrl = null, string? fileType = null)
     {
         var pm = new PrivateMessage 
         { 
@@ -23,7 +23,9 @@ public class MessageService : IMessageService
             ReceiverId = receiverId, 
             Text = text, 
             Timestamp = DateTime.UtcNow, 
-            IsRead = false 
+            IsRead = false,
+            FileUrl = fileUrl,
+            FileType = fileType
         };
         
         _db.PrivateMessages.Add(pm);

@@ -7,6 +7,6 @@
   "display": "standalone",
   "background_color": "#0b2a1c",
   "theme_color": "#0b2a1c",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "lang": "ru"
 }

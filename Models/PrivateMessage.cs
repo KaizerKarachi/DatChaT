@@ -19,4 +19,6 @@ public class PrivateMessage
     
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public bool IsRead { get; set; } = false;
+    public string? FileUrl { get; set; }
+    public string? FileType { get; set; }
 }

@@ -2,35 +2,42 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>DatChaT</title>
     <meta name="theme-color" content="#0b2a1c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DatChaT">
+    <link rel="apple-touch-icon" href="/images/logo.svg">
     <link rel="manifest" href="/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" href="/css/app.css?v=15">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
 </head>
 <body>
+<div class="page-bg" aria-hidden="true">
+    <div class="page-bg-green"></div>
+    <div class="page-bg-fire"></div>
+    <div class="page-bg-smoke"></div>
+    <div class="page-bg-air"></div>
+</div>
 <div id="loginScreen" class="login-page">
-    <p class="login-kicker">Premium Family Messenger</p>
+    <p class="login-kicker">Семейный мессенджер</p>
     <h1 class="brand-gold">DatChaT</h1>
-    <p class="login-sub">luxury family messenger</p>
     <form id="loginForm" class="glass" autocomplete="on">
         <label>
-            <span>Username</span>
-            <input id="nicknameInput" type="text" autocomplete="username" maxlength="30">
+            <span>Никнейм</span>
+            <input id="nicknameInput" type="text" autocomplete="username" maxlength="30" required>
         </label>
         <label>
-            <span>Password</span>
-            <input id="passwordInput" type="password" autocomplete="current-password" maxlength="50">
+            <span>Пароль</span>
+            <input id="passwordInput" type="password" autocomplete="new-password" maxlength="50" required minlength="6">
         </label>
         <p id="loginError" class="login-error" hidden></p>
-        <div class="glass-row">
-            <button type="button" id="forgotBtn" class="text-link">Forgot Password?</button>
-            <button type="submit" id="loginBtn">Login</button>
-        </div>
+        <button type="submit" id="loginBtn">Войти / создать аккаунт</button>
     </form>
     <p class="copy">© 2026 DatChaT</p>
 </div>
@@ -38,19 +45,30 @@
 <div id="app" class="app hidden">
     <aside id="sidebar" class="sidebar">
         <div class="side-brand">DatChaT</div>
-        <button type="button" class="nav-link active" id="familyChatBtn" data-chat="family">Family</button>
+        <button type="button" class="chat-item active" id="familyChatBtn" data-chat="family">
+            <div class="user-avatar av-green is-online">F</div>
+            <div class="chat-item-meta">
+                <div class="chat-item-name">Family</div>
+                <div class="chat-item-status">общий чат</div>
+            </div>
+        </button>
         <nav id="usersList" class="nav-list"></nav>
-        <button type="button" id="settingsBtn" class="nav-link quiet">Выйти</button>
+        <button type="button" id="settingsBtn" class="nav-link quiet" onclick="logout()">Выйти</button>
     </aside>
+    <button type="button" id="sidebarScrim" class="sidebar-scrim" hidden aria-label="Закрыть список чатов"></button>
 
     <main class="stage">
         <header class="stage-head">
             <button id="menuBtn" class="icon-btn" type="button" aria-label="Чаты">‹</button>
             <div>
                 <div class="brand-gold sm">DatChaT</div>
-                <div class="stage-sub" id="chatTitle">Family Chat</div>
+                <div class="stage-sub" id="chatTitle">Family</div>
+                <div class="stage-status" id="chatStatus">общий чат</div>
             </div>
-            <button id="searchBtn" class="icon-btn" type="button" aria-label="Поиск">⌕</button>
+            <div class="head-actions">
+                <button id="searchBtn" class="icon-btn" type="button" title="Поиск" aria-label="Поиск">⌕</button>
+                <button id="logoutBtn" class="icon-btn" type="button" title="Выйти" aria-label="Выйти" onclick="logout()">Выйти</button>
+            </div>
         </header>
         <div id="pinnedBar" class="pinned hidden">
             <span id="pinnedText"></span>
@@ -58,13 +76,12 @@
         </div>
         <section id="messages" class="messages"></section>
         <footer class="composer">
-            <label class="round-btn" for="fileInput" title="Файл">📎</label>
-            <input id="fileInput" type="file" class="sr-only" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.xlsx,.heic">
+            <label class="round-btn file-btn" title="Файл">
+                📎
+                <input id="fileInput" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.xlsx,.heic,.csv">
+            </label>
             <input id="messageInput" type="text" placeholder="Сообщение" maxlength="4000" autocomplete="off">
-            <div class="emoji-wrap">
-                <button id="emojiBtn" class="round-btn" type="button" title="Эмодзи">😊</button>
-                <div id="emojiPicker" class="emoji-picker hidden"></div>
-            </div>
+            <button id="emojiBtn" class="round-btn" type="button" title="Эмодзи">😊</button>
             <button id="sendBtn" type="button" aria-label="Отправить">➤</button>
         </footer>
     </main>
@@ -79,14 +96,15 @@
         <div id="searchResults" class="search-results"></div>
     </div>
 </div>
+<div id="emojiPicker" class="emoji-picker" aria-hidden="true"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script src="/js/signalr.js"></script>
-<script src="/js/auth.js"></script>
-<script src="/js/chat.js"></script>
-<script src="/js/pinned.js"></script>
-<script src="/js/users.js"></script>
-<script src="/js/ui.js"></script>
-<script src="/js/app.js"></script>
+<script src="/js/signalr.js?v=5"></script>
+<script src="/js/auth.js?v=5"></script>
+<script src="/js/chat.js?v=5"></script>
+<script src="/js/pinned.js?v=5"></script>
+<script src="/js/users.js?v=5"></script>
+<script src="/js/ui.js?v=5"></script>
+<script src="/js/app.js?v=5"></script>
 </body>
 </html>

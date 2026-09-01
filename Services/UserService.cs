@@ -9,9 +9,11 @@ namespace FamilyChat.Services;
 public class UserService : IUserService
 {
     private readonly ChatDbContext _db;
+    private readonly PresenceTracker _presence;
     private readonly ILogger<UserService> _logger;
 
-    public UserService(ChatDbContext db, ILogger<UserService> logger) => (_db, _logger) = (db, logger);
+    public UserService(ChatDbContext db, PresenceTracker presence, ILogger<UserService> logger) =>
+        (_db, _presence, _logger) = (db, presence, logger);
 
     public static string NormalizeNickname(string nickname) =>
         string.IsNullOrWhiteSpace(nickname) ? nickname : (nickname.StartsWith('#') ? nickname : "#" + nickname);
@@ -25,7 +27,7 @@ public class UserService : IUserService
     public Task<User?> FindByNicknameAsync(string nickname) =>
         _db.Users.FirstOrDefaultAsync(u => u.Nickname == NormalizeNickname(nickname));
 
-    public async Task<User> RegisterOrLoginAsync(string nickname, string password)
+    public async Task<(User user, bool isNew)> RegisterOrLoginAsync(string nickname, string password)
     {
         var nickCheck = InputValidator.ValidateNickname(nickname);
         if (!nickCheck.ok)
@@ -35,7 +37,7 @@ public class UserService : IUserService
         if (!passCheck.ok)
             throw new ArgumentException(passCheck.error);
 
-        var normalizedNick = NormalizeNickname(nickname);
+        var normalizedNick = NormalizeNickname(nickname.Trim());
         var user = await FindByNicknameAsync(normalizedNick);
 
         if (user == null)
@@ -43,27 +45,26 @@ public class UserService : IUserService
             user = new User
             {
                 Nickname = normalizedNick,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12),
                 IsApproved = true,
-                SessionToken = Guid.NewGuid().ToString()
+                SessionToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
             };
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
             _logger.LogInformation("Зарегистрирован новый пользователь: {Nickname}", normalizedNick);
+            return (user, true);
         }
-        else if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+
+        if (string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
         {
             _logger.LogWarning("Неверный пароль для пользователя: {Nickname}", normalizedNick);
             throw new UnauthorizedAccessException("Неверный ник или пароль");
         }
-        else
-        {
-            user.SessionToken = Guid.NewGuid().ToString();
-            await _db.SaveChangesAsync();
-            _logger.LogInformation("Успешный вход пользователя: {Nickname}", normalizedNick);
-        }
 
-        return user;
+        user.SessionToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        await _db.SaveChangesAsync();
+        _logger.LogInformation("Успешный вход пользователя: {Nickname}", normalizedNick);
+        return (user, false);
     }
 
     public async Task<User> JoinByTokenAsync(string nickname, string sessionToken)
@@ -89,17 +90,46 @@ public class UserService : IUserService
         user.IsOnline = true;
         user.LastSeen = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        _presence.Connect(connectionId, nickname);
     }
 
     public async Task SetUserOfflineAsync(string connectionId)
     {
-        var user = await FindByConnectionIdAsync(connectionId);
+        var nick = _presence.NicknameOf(connectionId);
+        var user = await FindByConnectionIdAsync(connectionId)
+            ?? (nick != null ? await FindByNicknameAsync(nick) : null);
+
+        _presence.Disconnect(connectionId);
+
         if (user == null) return;
+        if (_presence.IsOnline(user.Nickname)) return;
 
         user.IsOnline = false;
         user.ConnectionId = null;
         user.LastSeen = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+    }
+
+    public async Task InvalidateSessionAsync(string connectionId)
+    {
+        var nick = _presence.NicknameOf(connectionId);
+        var user = await FindByConnectionIdAsync(connectionId)
+            ?? (nick != null ? await FindByNicknameAsync(nick) : null);
+
+        if (user != null)
+        {
+            user.SessionToken = null;
+            await _db.SaveChangesAsync();
+        }
+
+        await SetUserOfflineAsync(connectionId);
+    }
+
+    public async Task ResetStalePresenceAsync()
+    {
+        await _db.Users.ExecuteUpdateAsync(s => s
+            .SetProperty(u => u.IsOnline, false)
+            .SetProperty(u => u.ConnectionId, (string?)null));
     }
 
     public async Task<List<string>> GetOnlineUsersAsync() =>
@@ -111,18 +141,25 @@ public class UserService : IUserService
     public async Task<List<UserListItemDto>> GetUsersAsync()
     {
         var users = await _db.Users.AsNoTracking()
-            .OrderByDescending(u => u.IsOnline)
-            .ThenBy(u => u.Nickname)
+            .OrderBy(u => u.Nickname)
             .ToListAsync();
 
-        return users.Select(u => new UserListItemDto
-        {
-            Nickname = u.Nickname,
-            DisplayName = DisplayName(u.Nickname),
-            IsOnline = u.IsOnline,
-            Status = u.IsOnline ? "Онлайн" : FormatLastSeen(u.LastSeen),
-            LastSeen = u.LastSeen
-        }).ToList();
+        return users
+            .Select(u =>
+            {
+                var online = _presence.IsOnline(u.Nickname);
+                return new UserListItemDto
+                {
+                    Nickname = u.Nickname,
+                    DisplayName = DisplayName(u.Nickname),
+                    IsOnline = online,
+                    Status = online ? "онлайн" : FormatLastSeen(u.LastSeen),
+                    LastSeen = u.LastSeen
+                };
+            })
+            .OrderByDescending(u => u.IsOnline)
+            .ThenBy(u => u.DisplayName)
+            .ToList();
     }
 
     private static string FormatLastSeen(DateTime lastSeenUtc)

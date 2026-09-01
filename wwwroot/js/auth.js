@@ -10,7 +10,7 @@ async function login(event) {
         return;
     }
 
-    if (!connection || connection.state !== "Connected") {
+    if (!isHubConnected()) {
         showLoginError("Соединение с сервером ещё не установлено");
         return;
     }
@@ -24,7 +24,9 @@ async function login(event) {
         applySession(data);
         if (window.DatChat.lastUsers) renderUsers();
         showChat();
-        messageInput?.focus();
+        if (pick(data, "isNew"))
+            showToast?.("Аккаунт создан. Пароль сохранён в виде хеша.");
+        document.getElementById("messageInput")?.focus();
     } catch (e) {
         console.error("Ошибка входа:", e);
         showLoginError(e.message || "Ошибка подключения");
@@ -34,7 +36,7 @@ async function login(event) {
 async function loginByToken() {
     const token = localStorage.getItem("sessionToken");
     const nickname = localStorage.getItem("nickname");
-    if (!token || !nickname || !connection || connection.state !== "Connected")
+    if (!token || !nickname || !isHubConnected())
         return false;
 
     try {
@@ -95,11 +97,22 @@ function clearSession() {
     window.DatChat.unread = {};
 }
 
-function logout() {
+async function logout() {
+    try {
+        if (isHubConnected())
+            await window.connection.invoke("Logout");
+    } catch (e) {
+        console.warn(e);
+    }
     clearSession();
     clearMessages?.();
     clearUsers?.();
     clearPinned?.();
+    try { await window.connection?.stop(); } catch { /* ignore */ }
     showLogin();
+    showToast("Вы вышли из чата");
+    startConnection();
 }
+
+window.logout = logout;
 

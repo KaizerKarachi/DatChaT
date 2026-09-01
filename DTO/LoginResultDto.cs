@@ -6,5 +6,6 @@ public class LoginResultDto
     public string? Nickname { get; set; }
     public string? SessionToken { get; set; }
     public bool IsAdmin { get; set; }
+    public bool IsNew { get; set; }
     public string? Error { get; set; }
 }

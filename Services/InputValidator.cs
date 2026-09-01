@@ -17,8 +17,8 @@ public static class InputValidator
     {
         if (string.IsNullOrWhiteSpace(pass))
             return (false, "Пароль не может быть пустым");
-        if (pass.Length < 3)
-            return (false, "Пароль слишком короткий (мин. 3 символа)");
+        if (pass.Length < 6)
+            return (false, "Пароль слишком короткий (мин. 6 символов)");
         if (pass.Length > 50)
             return (false, "Пароль слишком длинный");
         return (true, "");

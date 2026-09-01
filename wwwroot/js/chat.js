@@ -263,25 +263,38 @@ function removeMessage(id) {
     setTimeout(() => element.remove(), 2500);
 }
 
+function showEmptyChat(text) {
+    if (!messagesBox) return;
+    const empty = document.createElement("div");
+    empty.className = "empty-chat";
+    empty.id = "emptyChat";
+    empty.textContent = text;
+    messagesBox.appendChild(empty);
+}
+
+function hideEmptyChat() {
+    document.getElementById("emptyChat")?.remove();
+}
+
 async function sendMessage() {
     if (!messageInput) return;
     const text = messageInput.value.trim();
     if (!text) return;
-    if (!window.connection || window.connection.state !== "Connected") {
+    if (!isHubConnected()) {
         showToast?.("Соединение с сервером не установлено");
         return;
     }
 
     try {
         if (window.DatChat.activeChat === "family")
-            await window.connection.invoke("SendMessage", text, null, null);
+            await window.connection.invoke("SendMessage", text);
         else
-            await window.connection.invoke("SendPrivateMessage", window.DatChat.activeChat, text, null, null);
+            await window.connection.invoke("SendPrivateMessage", window.DatChat.activeChat, text);
         messageInput.value = "";
         messageInput.focus();
     } catch (e) {
         console.error(e);
-        showToast?.("Не удалось отправить сообщение");
+        showToast?.(e.message || "Не удалось отправить сообщение");
     }
 }
 
@@ -297,19 +310,19 @@ async function uploadAndSend(file) {
         }
         const data = await res.json();
         const caption = (window.messageInput?.value || "").trim() || data.fileName || file.name;
-        if (!window.connection || window.connection.state !== "Connected") {
+        if (!isHubConnected()) {
             showToast?.("Нет соединения с сервером");
             return;
         }
         if (window.DatChat.activeChat === "family")
-            await window.connection.invoke("SendMessage", caption, data.fileUrl, data.fileType);
+            await window.connection.invoke("SendFile", caption, data.fileUrl, data.fileType);
         else
-            await window.connection.invoke("SendPrivateMessage", window.DatChat.activeChat, caption, data.fileUrl, data.fileType);
+            await window.connection.invoke("SendPrivateFile", window.DatChat.activeChat, caption, data.fileUrl, data.fileType);
         if (window.messageInput) window.messageInput.value = "";
         showToast?.("Файл отправлен");
     } catch (e) {
         console.error(e);
-        showToast?.("Не удалось загрузить файл");
+        showToast?.(e.message || "Не удалось загрузить файл");
     }
 }
 

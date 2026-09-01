@@ -28,3 +28,6 @@ wwwroot/css.backup/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated / unused composites
+wwwroot/images/bg-atmosphere.jpg
